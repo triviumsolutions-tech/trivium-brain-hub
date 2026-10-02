@@ -16,8 +16,17 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const base64Audio = Buffer.from(arrayBuffer).toString("base64");
 
-    const prompt =
-      "Você é um transcritor de áudio de alta precisão. Transcreva exatamente o que foi falado no áudio em português do Brasil. Mantenha os termos técnicos, nomes de produtos ou empresas (ex: Trivium, Lectio, Jira, Kanban). Retorne ESTRITAMENTE o texto transcrito, sem aspas, sem introdução ou explicações.";
+    const prompt = `Você é um especialista em transcrição fonética e reconhecimento de voz de altíssima precisão em português do Brasil para a empresa Trivium.
+Sua missão é transcrever exatamente o que a pessoa falou no áudio com máxima fidelidade acústica aos fonemas pronunciados.
+
+Atenção especial ao contexto da empresa:
+- Ideias e produtos: calculadora de churrasco, ferramentas de cálculo, simuladores, automações, SaaS, apps, produtos digitais.
+- Termos técnicos e gestão: Trivium, Brain Hub, Lectio, Jira, Kanban, Firestore, backlog, sprint, reuniões, atas, tarefas.
+
+DIRETRIZES CRÍTICAS:
+1. Ouça com extrema atenção a cada palavra. Não substitua palavras cotidianas por jargões (por exemplo: se o usuário disser "calculadora de churrasco", NUNCA transcreva como "calculadora de taxas" ou algo genérico).
+2. Mantenha os nomes e ideias exatamente como ditos pelo falante.
+3. Retorne EXCLUSIVAMENTE o texto transcrito em português brasileiro, sem aspas, sem pontuação inventada e sem introduções ou explicações.`;
 
     const mimeType =
       file.type && file.type !== "application/octet-stream"
