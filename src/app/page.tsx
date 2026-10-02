@@ -11,7 +11,6 @@ import { db } from "@/lib/firebase";
 export default function Home() {
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [search, setSearch] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [loadingDb, setLoadingDb] = useState(true);
 
@@ -33,26 +32,24 @@ export default function Home() {
     return () => unsub();
   }, []);
 
-  // Simula o processamento do áudio, mas agora SALVA de verdade no Banco de Dados!
-  const handleSimulateUpload = async () => {
-    setIsUploading(true);
-    setTimeout(async () => {
-      try {
+  // Callback chamado quando a API do Gemini retorna o JSON
+  const handleUploadSuccess = async (extractedIdeas: any[]) => {
+    try {
+      // Salva cada ideia extraída pela IA no Firebase
+      for (const idea of extractedIdeas) {
         await addDoc(collection(db, "ideas"), {
-          title: "Ideia Extraída por IA (Teste)",
-          project: "Upload Recente",
-          status: "Nova",
-          statusColor: "bg-emerald-500",
-          desc: "Este card foi gerado a partir do seu último upload. Na versão final com a Gemini API conectada ao Next.js, o texto real da transcrição apareceria aqui.",
+          title: idea.title,
+          project: idea.project || "Upload IA",
+          status: "Extraída por IA",
+          statusColor: "bg-blue-500",
+          desc: idea.desc,
           createdAt: new Date().toISOString()
         });
-      } catch (e) {
-        console.error("Erro salvando fake upload", e);
-        alert("Erro de permissão no Firebase. Certifique-se de que o Firestore está em modo de teste.");
-      } finally {
-        setIsUploading(false);
       }
-    }, 3000);
+    } catch (e) {
+      console.error("Erro salvando ideias extraídas", e);
+      alert("As ideias foram geradas, mas ocorreu um erro ao salvar no banco de dados.");
+    }
   };
 
   const filteredIdeas = ideas.filter(idea => 
@@ -86,7 +83,7 @@ export default function Home() {
       </header>
 
       <div className="mb-12">
-        <UploadModal onUpload={handleSimulateUpload} isUploading={isUploading} />
+        <UploadModal onUploadSuccess={handleUploadSuccess} />
       </div>
 
       {loadingDb ? (
