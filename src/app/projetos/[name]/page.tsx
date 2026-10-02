@@ -98,12 +98,56 @@ export default function ProjetoDetalhePage({ params }: { params: Promise<{ name:
   };
 
   return (
-    <div className="p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
+    <>
       <NewIdeaModal isOpen={isNewIdeaModalOpen} onClose={() => setIsNewIdeaModalOpen(false)} defaultProject={projectName} />
+      
+      {/* Modal Tela Cheia do Quadro Branco do Projeto */}
+      {showWhiteboard && (
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-in fade-in duration-200">
+          <header className="px-6 py-4 flex justify-between items-center bg-white/5 border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-white">
+                <PenTool size={16} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg leading-tight">Quadro Branco: {projectName}</h3>
+                <p className="text-xs text-white/50">Desenhe mapas mentais e arquiteturas para este projeto.</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-4">
+              <button onClick={() => setShowWhiteboard(false)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-medium transition-colors">
+                Cancelar
+              </button>
+              <button 
+                onClick={() => saveProjectCanvas(projectDrawing)}
+                disabled={isSavingDrawing}
+                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                {isSavingDrawing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar Quadro"}
+              </button>
+            </div>
+          </header>
+          
+          <div className="flex-1 w-full h-full p-4 relative">
+            {!drawingLoaded ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
+              </div>
+            ) : (
+              <Whiteboard 
+                initialData={projectDrawing}
+                onSave={(data) => setProjectDrawing(data)}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
-      <Link href="/projetos" className="inline-flex items-center gap-2 text-white/50 hover:text-white transition-colors mb-6 text-sm font-medium w-fit">
-        <ArrowLeft size={16} /> Voltar para o HUB de Projetos
-      </Link>
+      <div className="p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
+        <Link href="/projetos" className="inline-flex items-center gap-2 text-white/50 hover:text-white transition-colors mb-6 text-sm font-medium w-fit">
+          <ArrowLeft size={16} /> Voltar para o HUB de Projetos
+        </Link>
       
       <header className="flex justify-between items-end mb-12">
         <div>
@@ -202,51 +246,9 @@ export default function ProjetoDetalhePage({ params }: { params: Promise<{ name:
         </div>
       )}
 
-      {/* Modal Tela Cheia do Quadro Branco do Projeto */}
-      {showWhiteboard && (
-        <div className="fixed inset-0 z-[60] bg-black/95 flex flex-col animate-in fade-in duration-200">
-          <header className="px-6 py-4 flex justify-between items-center bg-white/5 border-b border-white/10">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-white">
-                <PenTool size={16} />
-              </div>
-              <div>
-                <h3 className="font-bold text-lg leading-tight">Quadro Branco: {projectName}</h3>
-                <p className="text-xs text-white/50">Desenhe mapas mentais e arquiteturas para este projeto.</p>
-              </div>
-            </div>
-            
-            <div className="flex gap-4">
-              <button onClick={() => setShowWhiteboard(false)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-medium transition-colors">
-                Cancelar
-              </button>
-              <button 
-                onClick={() => saveProjectCanvas(projectDrawing)}
-                disabled={isSavingDrawing}
-                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
-              >
-                {isSavingDrawing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar Quadro"}
-              </button>
-            </div>
-          </header>
-          
-          <div className="flex-1 w-full h-full p-4 relative">
-            {!drawingLoaded ? (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
-              </div>
-            ) : (
-              <Whiteboard 
-                initialData={projectDrawing}
-                onSave={(data) => setProjectDrawing(data)}
-              />
-            )}
-          </div>
-        </div>
-      )}
-      
-      {/* Glow effect */}
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-purple-600/10 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
-    </div>
+        {/* Glow effect */}
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-purple-600/10 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
+      </div>
+    </>
   );
 }

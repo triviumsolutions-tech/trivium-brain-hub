@@ -88,8 +88,10 @@ export default function Home() {
   );
 
   return (
-    <div className="p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
+    <>
       <NewIdeaModal isOpen={isNewIdeaModalOpen} onClose={() => setIsNewIdeaModalOpen(false)} />
+      
+      <div className="p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
       
       <header className="flex justify-between items-center mb-12">
         <div>
@@ -140,6 +142,10 @@ export default function Home() {
         </div>
       )}
       
+        {/* Glow effect absolute background */}
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-purple-600/10 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
+      </div>
+
       {/* Modal / Canvas da Ideia */}
       {selectedIdea && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-10 bg-black/60 backdrop-blur-sm">
@@ -180,15 +186,12 @@ export default function Home() {
             
             <div className="mt-6 flex justify-end">
               <button onClick={saveCanvas} disabled={isSaving} className="bg-purple-600 text-white px-8 py-3 rounded-xl font-medium hover:bg-purple-700 transition-colors shadow-[0_0_20px_rgba(147,51,234,0.3)] disabled:opacity-50 flex items-center gap-2">
-                {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : "Salvar Quadro e Alterações"}
+                {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : "Salvar Alterações"}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Glow effect absolute background */}
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-purple-600/10 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
-    </div>
+    </>
   );
 }
