@@ -13,30 +13,27 @@ export default function NovaIdeiaPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!title || !desc) {
       alert("Por favor, preencha o título e a descrição!");
       return;
     }
     
     setIsSubmitting(true);
-    try {
-      await addDoc(collection(db, "ideas"), {
-        title,
-        project: project || "Ideia Geral",
-        desc,
-        status: "Nova",
-        statusColor: "bg-emerald-500",
-        createdAt: new Date().toISOString()
-      });
-      // Volta para a home e a ideia já vai aparecer graças ao onSnapshot (real-time)
-      router.push("/");
-    } catch (e) {
-      console.error("Erro ao salvar:", e);
-      alert("Erro ao salvar a ideia. Tente novamente.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    
+    // Dispara pro banco de dados em background (Sem 'await')
+    // O SDK do Firebase se vira pra garantir a entrega via socket, e a UI fica instantânea.
+    addDoc(collection(db, "ideas"), {
+      title,
+      project: project || "Ideia Geral",
+      desc,
+      status: "Nova",
+      statusColor: "bg-emerald-500",
+      createdAt: new Date().toISOString()
+    }).catch(e => console.error("Erro background:", e));
+    
+    // Já joga o usuário pra Home no mesmo milissegundo
+    router.push("/");
   };
 
   return (
