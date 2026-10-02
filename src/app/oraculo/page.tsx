@@ -127,69 +127,131 @@ export default function OraculoPage() {
     setShowStats(!showStats);
   };
 
-  // Reconhecimento de Voz (Speech-to-Text)
-  const toggleListening = () => {
-    if (isListening) {
-      if (recognitionRef.current) {
-        (recognitionRef.current as { stop: () => void }).stop();
-      }
-      setIsListening(false);
-      return;
-    }
+  // Estados de Gravação de Áudio via MediaRecorder + Gemini
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    interface BrowserSpeechRecognition {
-      lang: string;
-      continuous: boolean;
-      interimResults: boolean;
-      onstart: (() => void) | null;
-      onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
-      onerror: (() => void) | null;
-      onend: (() => void) | null;
-      start: () => void;
-      stop: () => void;
-    }
-
-    const win = window as unknown as {
-      SpeechRecognition?: new () => BrowserSpeechRecognition;
-      webkitSpeechRecognition?: new () => BrowserSpeechRecognition;
-    };
-    const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition;
-
-    if (!SpeechRecognitionClass) {
-      alert("Seu navegador não possui suporte à API de reconhecimento de voz.");
-      return;
-    }
-
+  // Inicia gravação de áudio com microfone nativo
+  const startRecording = async () => {
     try {
-      const recognition = new SpeechRecognitionClass();
-      recognition.lang = "pt-BR";
-      recognition.continuous = false;
-      recognition.interimResults = true;
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        alert("Seu navegador não possui suporte para gravação de áudio.");
+        return;
+      }
 
-      recognition.onstart = () => {
-        setIsListening(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      let mimeType = "audio/webm";
+      if (typeof MediaRecorder !== "undefined") {
+        if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+          mimeType = "audio/webm;codecs=opus";
+        } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+          mimeType = "audio/mp4";
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
       };
 
-      recognition.onresult = (event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => {
-        const transcript = Array.from(event.results)
-          .map((result) => result[0]?.transcript || "")
-          .join("");
-        setInput(transcript);
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+
+        if (audioChunksRef.current.length === 0) return;
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        if (audioBlob.size < 500) return;
+
+        setIsTranscribing(true);
+        try {
+          const formData = new FormData();
+          formData.append("file", audioBlob, "audio.webm");
+
+          const res = await fetch("/api/transcribe", {
+            method: "POST",
+            body: formData,
+          });
+
+          const data = await res.json();
+          if (data.transcript) {
+            setInput(data.transcript);
+          } else if (data.error) {
+            alert("Erro na transcrição: " + data.error);
+          }
+        } catch (err) {
+          console.error("Erro ao enviar áudio:", err);
+          alert("Falha ao transcrever o áudio.");
+        } finally {
+          setIsTranscribing(false);
+        }
       };
 
-      recognition.onerror = () => {
-        setIsListening(false);
-      };
+      recorder.start(250);
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      setRecordingSeconds(0);
 
-      recognition.onend = () => {
-        setIsListening(false);
-      };
+      timerIntervalRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+    } catch (err: unknown) {
+      console.error("Erro no microfone:", err);
+      const errorObj = err as { name?: string; message?: string };
+      if (
+        errorObj.name === "NotAllowedError" ||
+        errorObj.name === "PermissionDeniedError"
+      ) {
+        alert(
+          "Permissão do microfone negada. Clique no ícone de cadeado/configurações ao lado de localhost na barra de endereço do seu navegador e permita o Microfone."
+        );
+      } else {
+        alert(
+          "Não foi possível iniciar a gravação. Verifique se seu microfone está conectado e permitido nas configurações do navegador."
+        );
+      }
+    }
+  };
 
-      recognition.start();
-      recognitionRef.current = recognition;
-    } catch (err) {
-      console.error(err);
-      setIsListening(false);
+  const stopRecording = () => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+  };
+
+  const cancelRecording = () => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.ondataavailable = null;
+      mediaRecorderRef.current.onstop = null;
+      if (mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+    }
+    setIsRecording(false);
+    setRecordingSeconds(0);
+  };
+
+  const toggleListening = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
     }
   };
 
@@ -529,33 +591,68 @@ ${meetings
         <button
           type="button"
           onClick={toggleListening}
-          className={`p-2.5 rounded-xl transition-all flex items-center justify-center ${
-            isListening
-              ? "bg-red-500 text-white animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+          disabled={isTranscribing || isLoading}
+          className={`p-2.5 rounded-xl transition-all flex items-center justify-center shrink-0 ${
+            isRecording
+              ? "bg-red-500 text-white animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.7)]"
               : "text-white/60 hover:text-white hover:bg-white/10"
           }`}
-          title={isListening ? "Parar de ouvir" : "Falar por microfone (Voz)"}
+          title={isRecording ? "Concluir gravação" : "Gravar áudio pelo microfone"}
         >
-          {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+          {isRecording ? <MicOff size={18} /> : <Mic size={18} />}
         </button>
 
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={
-            isListening
-              ? "Ouvindo sua pergunta em voz alta... fale agora..."
-              : "Pergunte qualquer coisa sobre ideias, reuniões e estatísticas da Trivium..."
-          }
-          disabled={isLoading}
-          className="flex-1 bg-transparent px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none"
-        />
+        {isRecording ? (
+          <div className="flex-1 flex items-center justify-between px-3 py-1.5 bg-red-500/10 border border-red-500/25 rounded-xl animate-in fade-in duration-150">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+              <span className="font-mono text-xs font-bold text-red-300">
+                Gravando... {Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, "0")}
+              </span>
+              <div className="hidden sm:flex items-center gap-1 h-3">
+                <span className="w-1 bg-red-400 rounded-full animate-bounce [animation-delay:0.1s] h-2" />
+                <span className="w-1 bg-red-400 rounded-full animate-bounce [animation-delay:0.3s] h-3.5" />
+                <span className="w-1 bg-red-400 rounded-full animate-bounce [animation-delay:0.2s] h-2.5" />
+                <span className="w-1 bg-red-400 rounded-full animate-bounce [animation-delay:0.4s] h-4" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={cancelRecording}
+                className="text-white/50 hover:text-white text-xs px-2 py-1"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={stopRecording}
+                className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow"
+              >
+                <Check size={12} /> Concluir
+              </button>
+            </div>
+          </div>
+        ) : isTranscribing ? (
+          <div className="flex-1 flex items-center gap-2.5 px-3 py-2 text-purple-300 text-xs font-mono animate-in fade-in duration-150">
+            <Loader2 size={15} className="animate-spin text-purple-400" />
+            <span>O Gemini está transcrevendo seu áudio com alta precisão...</span>
+          </div>
+        ) : (
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Pergunte qualquer coisa sobre ideias, reuniões e estatísticas da Trivium..."
+            disabled={isLoading}
+            className="flex-1 bg-transparent px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none"
+          />
+        )}
 
         <button
           type="submit"
-          disabled={isLoading || !input.trim()}
-          className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl text-xs font-semibold transition-all shadow-[0_0_15px_rgba(147,51,234,0.4)] disabled:opacity-40 flex items-center gap-1.5"
+          disabled={isLoading || isRecording || isTranscribing || !input.trim()}
+          className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl text-xs font-semibold transition-all shadow-[0_0_15px_rgba(147,51,234,0.4)] disabled:opacity-40 flex items-center gap-1.5 shrink-0"
         >
           {isLoading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
           <span>Consultar</span>
