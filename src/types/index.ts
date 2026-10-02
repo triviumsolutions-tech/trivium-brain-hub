@@ -100,3 +100,14 @@ export interface AuditLog {
   timestamp: string;
   details?: string;
 }
+
+export interface UserProfile {
+  id?: string;
+  uid?: string;
+  email: string;
+  displayName: string;
+  photoURL?: string | null;
+  role?: string;
+  lastLogin?: string;
+  createdAt?: string;
+}

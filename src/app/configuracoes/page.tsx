@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { User, signOut } from "firebase/auth";
-import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
+import {
+  collection,
+  onSnapshot,
+  query,
+  orderBy,
+  limit,
+  doc,
+  setDoc,
+} from "firebase/firestore";
 import {
   UserCircle,
   Bot,
@@ -16,18 +24,42 @@ import {
   Eye,
   Key,
   ExternalLink,
+  Users,
+  UserPlus,
+  Loader2,
 } from "lucide-react";
-import { AuditLog } from "@/types";
+import { AuditLog, UserProfile } from "@/types";
 
 export default function ConfiguracoesPage() {
   const [user, setUser] = useState<User | null>(null);
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [teamUsers, setTeamUsers] = useState<UserProfile[]>([]);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [newMemberName, setNewMemberName] = useState("");
+  const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [isSavingMember, setIsSavingMember] = useState(false);
 
   useEffect(() => {
     const unsubAuth = auth.onAuthStateChanged((u) => setUser(u));
 
+    // Escuta os usuários cadastrados/logados no Firestore
+    const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+      const fetched = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as UserProfile[];
+      fetched.sort((a, b) =>
+        (a.displayName || "").localeCompare(b.displayName || "")
+      );
+      setTeamUsers(fetched);
+    });
+
     // Escuta os últimos registros de Auditoria
-    const q = query(collection(db, "audit_logs"), orderBy("timestamp", "desc"), limit(10));
+    const q = query(
+      collection(db, "audit_logs"),
+      orderBy("timestamp", "desc"),
+      limit(10)
+    );
     const unsubLogs = onSnapshot(q, (snapshot) => {
       const fetchedLogs = snapshot.docs.map((d) => ({
         id: d.id,
@@ -38,9 +70,43 @@ export default function ConfiguracoesPage() {
 
     return () => {
       unsubAuth();
+      unsubUsers();
       unsubLogs();
     };
   }, []);
+
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMemberEmail.trim() || !newMemberEmail.includes("@")) {
+      alert("Por favor, informe um e-mail válido.");
+      return;
+    }
+    setIsSavingMember(true);
+    try {
+      const cleanEmail = newMemberEmail.trim().toLowerCase();
+      const docId = cleanEmail.replace(/[^a-z0-9]/g, "_");
+      await setDoc(
+        doc(db, "users", docId),
+        {
+          uid: docId,
+          email: cleanEmail,
+          displayName: newMemberName.trim() || cleanEmail.split("@")[0],
+          role: "Founder",
+          createdAt: new Date().toISOString(),
+          status: "Pré-cadastrado",
+        },
+        { merge: true }
+      );
+      setNewMemberName("");
+      setNewMemberEmail("");
+      setShowAddMember(false);
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao cadastrar sócio.");
+    } finally {
+      setIsSavingMember(false);
+    }
+  };
 
   return (
     <div className="p-8 md:p-10 max-w-6xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
@@ -113,6 +179,127 @@ export default function ConfiguracoesPage() {
                   Role: Founder (Acesso Total)
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Equipe & Sócios Trivium (Membros & Firestore) */}
+          <div className="glass rounded-3xl p-6 flex flex-col gap-4 border border-white/10">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-white">Equipe & Sócios Trivium</h3>
+                    <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      {teamUsers.length}/4 Sócios
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/50">
+                    Contas conectadas pelo Google Auth e salvas no Firestore para agendamentos e reuniões.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAddMember(!showAddMember)}
+                className="self-start sm:self-auto px-3 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              >
+                <UserPlus size={14} />
+                {showAddMember ? "Fechar" : "+ Cadastrar Sócio"}
+              </button>
+            </div>
+
+            {/* Form inline para cadastrar sócio */}
+            {showAddMember && (
+              <form
+                onSubmit={handleAddMember}
+                className="p-4 bg-neutral-900/80 rounded-2xl border border-purple-500/30 space-y-3 animate-in fade-in duration-150"
+              >
+                <div className="flex items-center justify-between text-xs text-purple-300 font-semibold">
+                  <span>Pré-cadastrar sócio (ex: 4º membro da equipe)</span>
+                  <span className="text-[11px] text-white/40">Ficará disponível no seletor de reuniões</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    value={newMemberName}
+                    onChange={(e) => setNewMemberName(e.target.value)}
+                    placeholder="Nome completo do sócio"
+                    className="bg-neutral-950 border border-white/10 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-purple-500"
+                  />
+                  <input
+                    type="email"
+                    value={newMemberEmail}
+                    onChange={(e) => setNewMemberEmail(e.target.value)}
+                    placeholder="E-mail (ex: socio4@trivium.tech)"
+                    required
+                    className="bg-neutral-950 border border-white/10 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-purple-500"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddMember(false)}
+                    className="px-3 py-1.5 text-white/50 hover:text-white text-xs"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingMember}
+                    className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  >
+                    {isSavingMember ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                    Salvar no Firestore
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Lista dos Sócios */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {teamUsers.length === 0 ? (
+                <div className="col-span-2 p-6 text-center text-xs text-white/40 border border-dashed border-white/10 rounded-2xl">
+                  Nenhum usuário detectado na coleção ainda. Faça login ou use o botão &quot;+ Cadastrar Sócio&quot; acima.
+                </div>
+              ) : (
+                teamUsers.map((u) => {
+                  const initial = (u.displayName || u.email || "T").charAt(0).toUpperCase();
+                  return (
+                    <div
+                      key={u.id || u.email}
+                      className="p-3.5 bg-neutral-900/60 rounded-2xl border border-white/5 flex items-center gap-3.5"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-900 to-indigo-900 border border-purple-500/30 flex items-center justify-center font-bold text-sm text-purple-200 shrink-0">
+                        {initial}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <h5 className="font-semibold text-white text-xs truncate">
+                            {u.displayName || u.email.split("@")[0]}
+                          </h5>
+                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300">
+                            Founder
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-white/50 truncate">{u.email}</p>
+                        {u.lastLogin ? (
+                          <span className="text-[9px] text-emerald-400/80 font-mono mt-0.5 block">
+                            Último acesso: {new Date(u.lastLogin).toLocaleDateString()}
+                          </span>
+                        ) : (
+                          <span className="text-[9px] text-amber-400/80 font-mono mt-0.5 block">
+                            Status: Pré-cadastrado
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 

@@ -3,7 +3,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { useEffect, useState } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -18,6 +19,28 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
       setLoading(false);
       
+      // Sincroniza usuário logado no Firestore (coleção "users")
+      if (currentUser && currentUser.email) {
+        const userRef = doc(db, "users", currentUser.uid);
+        setDoc(
+          userRef,
+          {
+            uid: currentUser.uid,
+            email: currentUser.email,
+            displayName:
+              currentUser.displayName ||
+              currentUser.email.split("@")[0] ||
+              "Membro Trivium",
+            photoURL: currentUser.photoURL || null,
+            lastLogin: new Date().toISOString(),
+            role: "Founder",
+          },
+          { merge: true }
+        ).catch((err) => {
+          console.warn("Aviso ao sincronizar usuário no Firestore:", err);
+        });
+      }
+
       // Lógica de bloqueio:
       // Se não tem usuário e tentou acessar qualquer coisa (menos o login), joga pro login
       if (!currentUser && pathname !== "/login") {

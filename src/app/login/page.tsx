@@ -2,7 +2,8 @@
 
 import { BrainCircuit, Loader2 } from "lucide-react";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 import { useState } from "react";
 
 export default function LoginPage() {
@@ -12,7 +13,24 @@ export default function LoginPage() {
     setIsLoggingIn(true);
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const res = await signInWithPopup(auth, provider);
+      if (res.user && res.user.email) {
+        await setDoc(
+          doc(db, "users", res.user.uid),
+          {
+            uid: res.user.uid,
+            email: res.user.email,
+            displayName:
+              res.user.displayName ||
+              res.user.email.split("@")[0] ||
+              "Membro Trivium",
+            photoURL: res.user.photoURL || null,
+            lastLogin: new Date().toISOString(),
+            role: "Founder",
+          },
+          { merge: true }
+        );
+      }
       // O ClientLayout (roteador raiz) cuidará do redirecionamento automaticamente
     } catch (error) {
       console.error(error);
