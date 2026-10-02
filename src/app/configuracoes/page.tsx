@@ -1,134 +1,255 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { User, signOut } from "firebase/auth";
-import { UserCircle, Bot, Shield, Bell, Sparkles, LogOut, Check } from "lucide-react";
+import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
+import {
+  UserCircle,
+  Bot,
+  Shield,
+  Sparkles,
+  LogOut,
+  Check,
+  Crown,
+  History,
+  Eye,
+  Key,
+  ExternalLink,
+} from "lucide-react";
+import { AuditLog } from "@/types";
 
 export default function ConfiguracoesPage() {
   const [user, setUser] = useState<User | null>(null);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
 
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged((u) => setUser(u));
-    return () => unsub();
+    const unsubAuth = auth.onAuthStateChanged((u) => setUser(u));
+
+    // Escuta os últimos registros de Auditoria
+    const q = query(collection(db, "audit_logs"), orderBy("timestamp", "desc"), limit(10));
+    const unsubLogs = onSnapshot(q, (snapshot) => {
+      const fetchedLogs = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as AuditLog[];
+      setLogs(fetchedLogs);
+    });
+
+    return () => {
+      unsubAuth();
+      unsubLogs();
+    };
   }, []);
 
   return (
-    <div className="p-10 max-w-5xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
-      <header className="mb-10">
-        <h1 className="text-3xl font-bold mb-2">Configurações</h1>
-        <p className="text-white/50">Gerencie sua conta e preferências do painel Trivium.</p>
+    <div className="p-8 md:p-10 max-w-6xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
+      <header className="mb-10 pb-6 border-b border-white/10">
+        <span className="text-xs uppercase font-mono px-3 py-1 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20 mb-2 inline-block">
+          Governança & Segurança
+        </span>
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Configurações & Governança</h1>
+        <p className="text-white/50 text-sm mt-1">
+          Gerencie permissões, o modo operacional e os registros de auditoria do sistema.
+        </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        
-        {/* Coluna 1: Perfil e IA */}
-        <div className="md:col-span-2 flex flex-col gap-6">
-          <div className="glass rounded-3xl p-8 flex flex-col gap-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-purple-500/20 text-purple-400 rounded-lg">
-                <UserCircle className="w-5 h-5" />
-              </div>
-              <h2 className="text-xl font-medium">Perfil da Conta</h2>
+      {/* BANNER FOUNDER MODE (Fase 1) */}
+      <section className="mb-8 p-6 rounded-3xl bg-gradient-to-r from-purple-900/40 via-neutral-900/80 to-blue-900/30 border border-purple-500/30 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+          <Crown size={120} className="text-purple-400" />
+        </div>
+
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-[0_0_25px_rgba(147,51,234,0.5)]">
+              <Crown size={28} />
             </div>
-            
-            <div className="flex items-center gap-6 p-4 bg-white/5 rounded-2xl border border-white/5">
-              {user?.photoURL ? (
-                <img src={user.photoURL} alt="Avatar" className="w-20 h-20 rounded-full border-2 border-purple-500/50" />
-              ) : (
-                <div className="w-20 h-20 rounded-full bg-purple-900/50 border-2 border-purple-500/50 flex items-center justify-center text-2xl font-bold">
-                  {user?.displayName?.charAt(0) || "T"}
-                </div>
-              )}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-xl font-bold text-white">Founder Mode Ativo (Fase 1)</h2>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Flat Hierarchy
+                </span>
+              </div>
+              <p className="text-xs text-white/60 max-w-xl leading-relaxed">
+                Todos os sócios possuem privilégios totais (Super Admin). Transições de checkpoints e aprovações do fluxo de IA podem ser feitas com autoaprovação imediata, focando em máxima velocidade.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 text-[11px] font-mono">
+            <span className="px-3 py-1 rounded-xl bg-white/5 border border-white/10 text-white/70 flex items-center gap-1.5">
+              <Eye size={12} className="text-purple-400" /> Visão Panorâmica
+            </span>
+            <span className="px-3 py-1 rounded-xl bg-white/5 border border-white/10 text-white/70 flex items-center gap-1.5">
+              <Key size={12} className="text-amber-400" /> Autoaprovação
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Coluna 1 & 2: Perfil, IA e Audit Trail */}
+        <div className="lg:col-span-2 flex flex-col gap-6">
+          {/* Perfil */}
+          <div className="glass rounded-3xl p-6 flex flex-col gap-4 border border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-500/20 text-purple-400 rounded-xl">
+                <UserCircle size={20} />
+              </div>
+              <h3 className="text-lg font-bold text-white">Perfil da Conta</h3>
+            </div>
+
+            <div className="flex items-center gap-5 p-4 bg-white/5 rounded-2xl border border-white/5">
+              <div className="w-16 h-16 rounded-2xl bg-purple-900/50 border-2 border-purple-500/40 flex items-center justify-center text-xl font-bold text-white">
+                {user?.displayName?.charAt(0) || user?.email?.charAt(0) || "T"}
+              </div>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold">{user?.displayName || "Usuário da Trivium"}</h3>
-                <p className="text-white/50 text-sm">{user?.email || "Carregando email..."}</p>
-                <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 text-xs font-medium border border-emerald-500/20">
-                  <Check className="w-3.5 h-3.5" />
-                  Conta Verificada (Google Auth)
+                <h4 className="text-base font-semibold text-white">{user?.displayName || "Sócio Trivium"}</h4>
+                <p className="text-white/50 text-xs">{user?.email || "founder@trivium.tech"}</p>
+                <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[11px] font-medium border border-emerald-500/20">
+                  <Check size={12} />
+                  Role: Founder (Acesso Total)
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="glass rounded-3xl p-8 flex flex-col gap-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-blue-500/20 text-blue-400 rounded-lg">
-                <Bot className="w-5 h-5" />
+          {/* Audit Trail (Registro de Auditoria) */}
+          <div className="glass rounded-3xl p-6 flex flex-col gap-4 border border-white/10">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-500/20 text-blue-400 rounded-xl">
+                  <History size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Audit Trail (Trilha de Auditoria)</h3>
+                  <p className="text-xs text-white/50">Registro silencioso de ações, aprovações e checkpoints no sistema.</p>
+                </div>
               </div>
-              <h2 className="text-xl font-medium">Motor de Inteligência Artificial</h2>
+              <span className="text-[10px] font-mono text-white/40">Últimos 10 eventos</span>
             </div>
-            
-            <div className="space-y-4">
-              <div className="flex justify-between items-center p-5 bg-white/5 rounded-xl border border-white/5">
-                <div>
-                  <p className="font-medium flex items-center gap-2"><Sparkles className="w-4 h-4 text-amber-400" /> Modelo Padrão de Extração</p>
-                  <p className="text-white/50 text-sm mt-1">O motor que transcreve e filtra os dados das reuniões enviadas no Dashboard.</p>
-                </div>
-                <div className="px-4 py-2 bg-purple-600/20 text-purple-300 border border-purple-500/30 rounded-lg text-sm font-medium">
-                  Gemini 1.5 Pro
-                </div>
-              </div>
 
-              <div className="flex justify-between items-center p-5 bg-white/5 rounded-xl border border-white/5">
-                <div>
-                  <p className="font-medium">Upload de Mídia</p>
-                  <p className="text-white/50 text-sm mt-1">Capacidade de arquivos de áudio/vídeo permitidos por vez na API.</p>
+            <div className="space-y-2 mt-2 max-h-64 overflow-y-auto pr-1">
+              {logs.length === 0 ? (
+                <div className="p-4 text-center text-xs text-white/40 border border-dashed border-white/10 rounded-2xl">
+                  Nenhum evento registrado ainda. As ações de aprovação, promoção e edição aparecerão aqui.
                 </div>
-                <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium">
-                  Até 20MB (Vercel)
-                </div>
-              </div>
+              ) : (
+                logs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="p-3 bg-neutral-900/60 rounded-xl border border-white/5 flex items-center justify-between text-xs"
+                  >
+                    <div>
+                      <span className="font-semibold text-purple-300 font-mono text-[11px]">
+                        [{log.action}]
+                      </span>{" "}
+                      <span className="text-white/70">{log.details || log.target}</span>
+                    </div>
+                    <span className="text-[10px] text-white/40 font-mono shrink-0 ml-3">
+                      {new Date(log.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
 
-        {/* Coluna 2: Preferências */}
+        {/* Coluna 3: IA e Sessão */}
         <div className="flex flex-col gap-6">
-          <div className="glass rounded-3xl p-6 flex flex-col gap-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-orange-500/20 text-orange-400 rounded-lg">
-                <Bell className="w-5 h-5" />
+          <div className="glass rounded-3xl p-6 flex flex-col gap-4 border border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-500/20 text-purple-400 rounded-xl">
+                <Bot size={20} />
               </div>
-              <h2 className="text-lg font-medium">Notificações</h2>
+              <h3 className="text-lg font-bold text-white">Motor de IA</h3>
             </div>
-            
-            <div className="flex flex-col gap-5 mt-2">
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-sm text-white/70">Novas ideias do time</span>
-                <div className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-9 h-5 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
-                </div>
-              </label>
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-sm text-white/70">Relatórios semanais (Em breve)</span>
-                <div className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" disabled />
-                  <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/50 after:border-gray-500 after:border after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
-                </div>
-              </label>
+
+            <div className="space-y-3">
+              <div className="p-3.5 bg-white/5 rounded-xl border border-white/5">
+                <span className="text-xs font-semibold text-white flex items-center gap-1.5 mb-1">
+                  <Sparkles size={13} className="text-amber-400" /> Modelo Ativo
+                </span>
+                <p className="text-xs text-purple-300 font-mono">Gemini 3.8 Flash</p>
+                <p className="text-[11px] text-white/40 mt-1">
+                  RAG, ingestão multimodal, extração de lousa e oráculo por voz.
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-white/5 rounded-xl border border-white/5">
+                <span className="text-xs font-semibold text-white block mb-1">Quarentena Automática</span>
+                <p className="text-[11px] text-emerald-400 font-mono">Ativa (Human-in-the-loop)</p>
+                <p className="text-[11px] text-white/40 mt-1">
+                  IA estritamente proibida de criar projetos autônomos.
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="glass rounded-3xl p-6 flex flex-col gap-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-red-500/20 text-red-400 rounded-lg">
-                <Shield className="w-5 h-5" />
+          {/* Integrações de Ecossistema */}
+          <div className="glass rounded-3xl p-6 flex flex-col gap-4 border border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-500/20 text-blue-400 rounded-xl">
+                <ExternalLink size={20} />
               </div>
-              <h2 className="text-lg font-medium">Segurança</h2>
+              <h3 className="text-lg font-bold text-white">Integrações</h3>
             </div>
-            
-            <button 
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3.5 bg-white/5 rounded-xl border border-white/5">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-semibold text-white">Atlassian Jira</span>
+                  <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-mono">
+                    Conectado (KAN)
+                  </span>
+                </div>
+                <p className="text-[11px] text-white/50 mb-2">
+                  triviumsolutions.atlassian.net • Quadro #1
+                </p>
+                <a
+                  href="https://triviumsolutions.atlassian.net/jira/software/projects/KAN/boards/1?filter=&groupBy=none"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-2 bg-blue-600/30 hover:bg-blue-600/40 text-blue-200 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors border border-blue-500/30"
+                >
+                  Abrir Quadro Jira KAN <ExternalLink size={12} />
+                </a>
+              </div>
+
+              <div className="p-3.5 bg-white/5 rounded-xl border border-white/5">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-semibold text-white">Google Agenda & Meet</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono">
+                    Ativo
+                  </span>
+                </div>
+                <p className="text-[11px] text-white/50">
+                  Agendamento de reuniões com criação automática de salas Google Meet e convite para a equipe.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass rounded-3xl p-6 flex flex-col gap-4 border border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-500/20 text-red-400 rounded-xl">
+                <Shield size={20} />
+              </div>
+              <h3 className="text-lg font-bold text-white">Sessão</h3>
+            </div>
+
+            <button
               onClick={() => signOut(auth)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl transition-colors font-medium text-sm mt-2"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl transition-colors font-semibold text-xs mt-2"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut size={15} />
               Encerrar Sessão (Sair)
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );

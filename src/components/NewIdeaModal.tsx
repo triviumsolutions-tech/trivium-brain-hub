@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -19,8 +19,11 @@ export function NewIdeaModal({ isOpen, onClose, defaultProject = "" }: NewIdeaMo
   const [stage, setStage] = useState("Semente");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   if (!isOpen || !mounted) return null;
 
@@ -106,16 +109,21 @@ export function NewIdeaModal({ isOpen, onClose, defaultProject = "" }: NewIdeaMo
             </div>
             <div>
               <label className="block text-sm font-medium text-white/70 mb-2">Fase (Ciclo de Vida)</label>
-              <select 
-                value={stage}
-                onChange={(e) => setStage(e.target.value)}
-                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500 transition-colors"
-              >
-                <option value="Semente">🌱 Semente (Brainstorm)</option>
-                <option value="Projeto">🏗️ Projeto (Em Construção)</option>
-                <option value="Produto">🚀 Produto (Já Lançado)</option>
-                <option value="Feature">✨ Nova Feature / Melhoria</option>
-              </select>
+              <div className="relative">
+                <select 
+                  value={stage}
+                  onChange={(e) => setStage(e.target.value)}
+                  className="w-full bg-neutral-900 border border-white/15 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500 transition-colors cursor-pointer appearance-none"
+                >
+                  <option value="Semente" className="bg-neutral-900 text-white py-2">🌱 Semente (Brainstorm)</option>
+                  <option value="Projeto" className="bg-neutral-900 text-white py-2">🏗️ Projeto (Em Construção)</option>
+                  <option value="Produto" className="bg-neutral-900 text-white py-2">🚀 Produto (Já Lançado)</option>
+                  <option value="Feature" className="bg-neutral-900 text-white py-2">✨ Nova Feature / Melhoria</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-white/50">
+                  ▼
+                </div>
+              </div>
             </div>
           </div>
           <div>
