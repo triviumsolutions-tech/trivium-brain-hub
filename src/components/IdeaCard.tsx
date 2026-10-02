@@ -7,6 +7,8 @@ export interface Idea {
   status: string;
   statusColor: string;
   desc: string;
+  notes?: string;
+  drawing?: string;
   createdAt?: string;
 }
 
@@ -30,11 +32,7 @@ export function IdeaCard({ idea, onClick }: { idea: Idea, onClick?: () => void }
         {idea.desc}
       </p>
 
-      <div className="mt-4 flex justify-between items-center border-t border-white/5 pt-4 relative z-10">
-        <div className="flex -space-x-2">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 border-2 border-black flex items-center justify-center text-[9px] font-bold">GS</div>
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 border-2 border-black flex items-center justify-center text-[9px] font-bold">TR</div>
-        </div>
+      <div className="mt-4 flex justify-end items-center border-t border-white/5 pt-4 relative z-10">
         <button className="text-xs font-medium text-purple-400/70 group-hover:text-purple-400 flex items-center gap-1 transition-colors">
           Abrir Canvas <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
         </button>
