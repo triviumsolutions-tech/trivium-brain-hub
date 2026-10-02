@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { IdeaCard } from "@/components/IdeaCard";
+import { IdeaCard, Idea } from "@/components/IdeaCard";
 import { UploadModal } from "@/components/UploadModal";
 import { Mic, Search, X, Folder, Sparkles, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -9,32 +9,28 @@ import { collection, onSnapshot, query, orderBy, addDoc } from "firebase/firesto
 import { db } from "@/lib/firebase";
 
 export default function Home() {
-  const [ideas, setIdeas] = useState<any[]>([]);
+  const [ideas, setIdeas] = useState<Idea[]>([]);
   const [search, setSearch] = useState("");
   const [isUploading, setIsUploading] = useState(false);
-  const [selectedIdea, setSelectedIdea] = useState<any>(null);
+  const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [loadingDb, setLoadingDb] = useState(true);
 
-  // Busca em tempo real do Firebase Firestore
+  // Busca em tempo real do Firebase
   useEffect(() => {
-    try {
-      const q = query(collection(db, "ideas"), orderBy("createdAt", "desc"));
-      const unsub = onSnapshot(q, (snapshot) => {
-        const fetchedIdeas = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setIdeas(fetchedIdeas);
-        setLoadingDb(false);
-      }, (error) => {
-        console.error("Erro ao buscar ideias:", error);
-        setLoadingDb(false);
-      });
-      return () => unsub();
-    } catch (error) {
-      console.log("Aguardando configuração de permissões do firebase...", error);
+    const q = query(collection(db, "ideas"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const fetchedIdeas = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Idea[];
+      setIdeas(fetchedIdeas);
       setLoadingDb(false);
-    }
+    }, (error) => {
+      console.error("Erro ao buscar ideias:", error);
+      setTimeout(() => setLoadingDb(false), 0);
+    });
+    
+    return () => unsub();
   }, []);
 
   // Simula o processamento do áudio, mas agora SALVA de verdade no Banco de Dados!
@@ -96,7 +92,7 @@ export default function Home() {
       {loadingDb ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50 mt-10">
           <Loader2 className="w-10 h-10 animate-spin mb-4 text-purple-400" />
-          <h3 className="text-xl font-medium">Sincronizando com Firestore...</h3>
+          <h3 className="text-xl font-medium">Sincronizando dados...</h3>
         </div>
       ) : ideas.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50 mt-10">

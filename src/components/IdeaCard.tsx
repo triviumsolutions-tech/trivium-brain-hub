@@ -1,6 +1,16 @@
 import { ArrowRight, Folder } from "lucide-react";
 
-export function IdeaCard({ idea, onClick }: { idea: any, onClick?: () => void }) {
+export interface Idea {
+  id?: string;
+  title: string;
+  project: string;
+  status: string;
+  statusColor: string;
+  desc: string;
+  createdAt?: string;
+}
+
+export function IdeaCard({ idea, onClick }: { idea: Idea, onClick?: () => void }) {
   return (
     <div onClick={onClick} className="glass glass-hover rounded-2xl p-6 flex flex-col group cursor-pointer h-64 relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>

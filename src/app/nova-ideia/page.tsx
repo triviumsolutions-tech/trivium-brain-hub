@@ -33,7 +33,7 @@ export default function NovaIdeiaPage() {
       router.push("/");
     } catch (e) {
       console.error("Erro ao salvar:", e);
-      alert("Erro ao salvar no banco. Verifique se o Firestore está configurado em modo de teste.");
+      alert("Erro ao salvar a ideia. Tente novamente.");
     } finally {
       setIsSubmitting(false);
     }
@@ -80,7 +80,7 @@ export default function NovaIdeiaPage() {
           disabled={isSubmitting}
           className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 rounded-xl mt-4 transition-colors shadow-[0_0_20px_rgba(147,51,234,0.3)] disabled:opacity-50 flex items-center justify-center"
         >
-          {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Salvar Ideia no Firestore"}
+          {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Salvar Ideia"}
         </button>
       </div>
     </div>
