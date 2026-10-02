@@ -64,6 +64,23 @@ export default function NovaIdeiaPage() {
           />
         </div>
         <div>
+          <label className="block text-sm font-medium text-white/70 mb-2">Fase (Ciclo de Vida)</label>
+          <select 
+            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500 transition-colors"
+            onChange={(e) => {
+              // Hack rápido pro MVP: Salvar a fase no status pra exibir bonito no card
+              const el = e.target;
+              // A gente poderia adicionar um state novo "stage", mas vamos reaproveitar o visual do status
+            }}
+            id="fase-select"
+          >
+            <option value="Semente">🌱 Semente (Brainstorm Livre)</option>
+            <option value="Projeto">🏗️ Projeto (Em Construção)</option>
+            <option value="Produto">🚀 Produto (Já Lançado)</option>
+            <option value="Feature">✨ Nova Feature / Melhoria</option>
+          </select>
+        </div>
+        <div>
           <label className="block text-sm font-medium text-white/70 mb-2">Descrição / Contexto</label>
           <textarea 
             value={desc}

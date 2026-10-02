@@ -59,7 +59,7 @@ export default function ProjetosPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {projects.map(proj => (
-            <Link href="/" key={proj.name} className="glass rounded-2xl p-6 flex flex-col group relative overflow-hidden hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+            <Link href={`/projetos/${encodeURIComponent(proj.name)}`} key={proj.name} className="glass rounded-2xl p-6 flex flex-col group relative overflow-hidden hover:-translate-y-1 transition-all duration-300 cursor-pointer">
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               
               <div className="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center mb-6 border border-purple-500/20 group-hover:scale-110 transition-transform">
