@@ -1,0 +1,88 @@
+"use client";
+
+import { useState } from "react";
+import { collection, addDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
+
+export default function NovaIdeiaPage() {
+  const [title, setTitle] = useState("");
+  const [project, setProject] = useState("");
+  const [desc, setDesc] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter();
+
+  const handleSave = async () => {
+    if (!title || !desc) {
+      alert("Por favor, preencha o título e a descrição!");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      await addDoc(collection(db, "ideas"), {
+        title,
+        project: project || "Ideia Geral",
+        desc,
+        status: "Nova",
+        statusColor: "bg-emerald-500",
+        createdAt: new Date().toISOString()
+      });
+      // Volta para a home e a ideia já vai aparecer graças ao onSnapshot (real-time)
+      router.push("/");
+    } catch (e) {
+      console.error("Erro ao salvar:", e);
+      alert("Erro ao salvar no banco. Verifique se o Firestore está configurado em modo de teste.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="p-10 max-w-3xl mx-auto h-full flex flex-col relative z-10">
+      <header className="mb-12">
+        <h1 className="text-3xl font-bold mb-2">Criar Nova Ideia</h1>
+        <p className="text-white/50">Formalize uma ideia manualmente e salve no banco de dados.</p>
+      </header>
+      <div className="glass rounded-3xl p-8 flex flex-col gap-6">
+        <div>
+          <label className="block text-sm font-medium text-white/70 mb-2">Título da Ideia</label>
+          <input 
+            type="text" 
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500 transition-colors" 
+            placeholder="Ex: Novo dashboard de métricas" 
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white/70 mb-2">Projeto Vinculado</label>
+          <input 
+            type="text" 
+            value={project}
+            onChange={e => setProject(e.target.value)}
+            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500 transition-colors" 
+            placeholder="Ex: Trivium Core (deixe em branco se for geral)" 
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white/70 mb-2">Descrição / Contexto</label>
+          <textarea 
+            value={desc}
+            onChange={e => setDesc(e.target.value)}
+            className="w-full h-40 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500 transition-colors resize-none" 
+            placeholder="Descreva a ideia de forma estruturada..." 
+          />
+        </div>
+        <button 
+          onClick={handleSave} 
+          disabled={isSubmitting}
+          className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 rounded-xl mt-4 transition-colors shadow-[0_0_20px_rgba(147,51,234,0.3)] disabled:opacity-50 flex items-center justify-center"
+        >
+          {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Salvar Ideia no Firestore"}
+        </button>
+      </div>
+    </div>
+  );
+}
