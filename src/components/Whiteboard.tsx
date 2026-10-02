@@ -16,7 +16,7 @@ export function Whiteboard({ initialData, onSave }: { initialData?: string, onSa
     
     // Set internal resolution
     canvas.width = canvas.offsetWidth;
-    canvas.height = 300;
+    canvas.height = canvas.offsetHeight || 600; // Fallback caso não tenha height
     
     // Fill background
     ctx.fillStyle = "rgba(0,0,0,0.1)";
@@ -112,7 +112,7 @@ export function Whiteboard({ initialData, onSave }: { initialData?: string, onSa
           <Trash2 size={16} /> Limpar Quadro
         </button>
       </div>
-      <div className="rounded-xl border border-white/10 overflow-hidden bg-black/20 cursor-crosshair relative">
+      <div className="flex-1 rounded-xl border border-white/10 overflow-hidden bg-black/20 cursor-crosshair relative min-h-[300px]">
         <canvas
           ref={canvasRef}
           onMouseDown={startDrawing}
@@ -122,7 +122,7 @@ export function Whiteboard({ initialData, onSave }: { initialData?: string, onSa
           onTouchStart={startDrawing}
           onTouchEnd={stopDrawing}
           onTouchMove={draw}
-          className="w-full h-[300px] touch-none"
+          className="w-full h-full touch-none"
         />
       </div>
     </div>

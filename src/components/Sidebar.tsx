@@ -20,7 +20,6 @@ export function Sidebar() {
       <nav className="flex-1 space-y-2">
         <SidebarItem icon={<LayoutDashboard size={20} />} label="Dashboard" href="/" active={pathname === "/"} />
         <SidebarItem icon={<Library size={20} />} label="Projetos" href="/projetos" active={pathname === "/projetos"} />
-        <SidebarItem icon={<PlusCircle size={20} />} label="Nova Ideia" href="/nova-ideia" active={pathname === "/nova-ideia"} />
       </nav>
 
       <div className="mt-auto space-y-2">

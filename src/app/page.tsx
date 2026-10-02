@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { IdeaCard, Idea } from "@/components/IdeaCard";
 import { UploadModal } from "@/components/UploadModal";
-import { Mic, Search, X, Folder, Sparkles, Loader2 } from "lucide-react";
+import { Mic, Search, X, Folder, Sparkles, Loader2, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { collection, onSnapshot, query, orderBy, addDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Whiteboard } from "@/components/Whiteboard";
+import { NewIdeaModal } from "@/components/NewIdeaModal";
 
 export default function Home() {
   const [ideas, setIdeas] = useState<Idea[]>([]);
@@ -19,6 +20,8 @@ export default function Home() {
   const [editNotes, setEditNotes] = useState("");
   const [editDrawing, setEditDrawing] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  
+  const [isNewIdeaModalOpen, setIsNewIdeaModalOpen] = useState(false);
 
   // Busca em tempo real do Firebase
   useEffect(() => {
@@ -86,6 +89,8 @@ export default function Home() {
 
   return (
     <div className="p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
+      <NewIdeaModal isOpen={isNewIdeaModalOpen} onClose={() => setIsNewIdeaModalOpen(false)} />
+      
       <header className="flex justify-between items-center mb-12">
         <div>
           <h1 className="text-3xl font-bold mb-2">Explorar Ideias</h1>
@@ -103,9 +108,12 @@ export default function Home() {
               className="bg-transparent border-none outline-none text-sm w-64 placeholder:text-white/30 text-white" 
             />
           </div>
-          <Link href="/nova-ideia" className="bg-white text-black px-6 py-2 rounded-full font-medium text-sm hover:bg-white/90 transition-colors flex items-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.2)]">
-            <Mic size={16} /> Nova Ideia Manual
-          </Link>
+          <button 
+            onClick={() => setIsNewIdeaModalOpen(true)}
+            className="bg-white text-black px-6 py-2 rounded-full font-medium text-sm hover:bg-white/90 transition-colors flex items-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+          >
+            <PlusCircle size={16} /> Nova Ideia
+          </button>
         </div>
       </header>
 
@@ -154,34 +162,20 @@ export default function Home() {
               {selectedIdea.title} <Sparkles className="text-purple-400 w-6 h-6" />
             </h2>
             
-            <div className="flex-1 w-full bg-black/30 border border-white/5 rounded-2xl p-6 mt-4 overflow-y-auto flex flex-col lg:flex-row gap-8">
-              <div className="flex-1 flex flex-col gap-6">
-                <div className="text-white/80 text-base leading-relaxed whitespace-pre-wrap">
-                  {selectedIdea.desc}
-                </div>
-                
-                <div className="mt-auto border-t border-white/10 pt-6">
-                  <h4 className="text-white/50 text-sm font-semibold mb-4 uppercase tracking-wider">Discussão & Notas do Canvas</h4>
-                  <textarea 
-                    value={editNotes}
-                    onChange={(e) => setEditNotes(e.target.value)}
-                    placeholder="Escreva novas anotações, adicione contextos ou desenvolva mais essa ideia aqui..." 
-                    className="w-full min-h-[120px] bg-white/5 rounded-xl border border-white/10 p-4 outline-none text-white placeholder:text-white/30 resize-y focus:border-purple-500/50 transition-colors"
-                  />
-                </div>
+            <div className="flex-1 w-full bg-black/30 border border-white/5 rounded-2xl p-6 mt-4 overflow-y-auto">
+              <div className="text-white/80 text-base leading-relaxed whitespace-pre-wrap">
+                {selectedIdea.desc}
               </div>
-
-              {/* Quadro Branco Interativo */}
-              <div className="w-full lg:w-[450px] border-l border-white/10 pl-0 lg:pl-8 flex flex-col gap-4">
-                <h4 className="text-white/50 text-sm font-semibold uppercase tracking-wider">Lousa de Brainstorm (Rascunho)</h4>
-                <div className="flex-1 min-h-[350px]">
-                  <Whiteboard 
-                    initialData={selectedIdea.drawing} 
-                    onSave={(data) => setEditDrawing(data)} 
-                  />
-                </div>
+              
+              <div className="mt-10 border-t border-white/10 pt-6">
+                <h4 className="text-white/50 text-sm font-semibold mb-4 uppercase tracking-wider">Discussão & Notas</h4>
+                <textarea 
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  placeholder="Escreva novas anotações, adicione contextos ou desenvolva mais essa ideia aqui..." 
+                  className="w-full min-h-[120px] bg-white/5 rounded-xl border border-white/10 p-4 outline-none text-white placeholder:text-white/30 resize-y focus:border-purple-500/50 transition-colors"
+                />
               </div>
-
             </div>
             
             <div className="mt-6 flex justify-end">

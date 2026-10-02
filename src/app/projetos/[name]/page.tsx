@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { collection, onSnapshot, query, where, doc, updateDoc } from "firebase/firestore";
+import { collection, onSnapshot, query, where, doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { IdeaCard, Idea } from "@/components/IdeaCard";
-import { ArrowLeft, Loader2, Search, Filter, Sparkles, Folder, X } from "lucide-react";
+import { ArrowLeft, Loader2, Search, Filter, Sparkles, Folder, X, PenTool, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { Whiteboard } from "@/components/Whiteboard";
+import { NewIdeaModal } from "@/components/NewIdeaModal";
 
 export default function ProjetoDetalhePage({ params }: { params: Promise<{ name: string }> }) {
   const resolvedParams = use(params);
@@ -17,14 +18,19 @@ export default function ProjetoDetalhePage({ params }: { params: Promise<{ name:
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
 
   const [editNotes, setEditNotes] = useState("");
-  const [editDrawing, setEditDrawing] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingIdea, setIsSavingIdea] = useState(false);
+
+  // States para o Quadro Branco do PROJETO
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [projectDrawing, setProjectDrawing] = useState("");
+  const [isSavingDrawing, setIsSavingDrawing] = useState(false);
+  const [drawingLoaded, setDrawingLoaded] = useState(false);
+  
+  // State modal criação
+  const [isNewIdeaModalOpen, setIsNewIdeaModalOpen] = useState(false);
 
   useEffect(() => {
-    const q = query(
-      collection(db, "ideas"), 
-      where("project", "==", projectName)
-    );
+    const q = query(collection(db, "ideas"), where("project", "==", projectName));
     
     const unsub = onSnapshot(q, (snapshot) => {
       const fetchedIdeas = snapshot.docs.map(document => ({
@@ -45,31 +51,56 @@ export default function ProjetoDetalhePage({ params }: { params: Promise<{ name:
     return () => unsub();
   }, [projectName]);
 
+  // Carrega o desenho do projeto ao abrir o modal
+  useEffect(() => {
+    if (showWhiteboard && !drawingLoaded) {
+      getDoc(doc(db, "projects", projectName)).then(document => {
+        if (document.exists() && document.data().drawing) {
+          setProjectDrawing(document.data().drawing);
+        }
+        setDrawingLoaded(true);
+      });
+    }
+  }, [showWhiteboard, drawingLoaded, projectName]);
+
+  const saveProjectCanvas = async (dataToSave: string) => {
+    setIsSavingDrawing(true);
+    try {
+      await setDoc(doc(db, "projects", projectName), { drawing: dataToSave }, { merge: true });
+      setShowWhiteboard(false);
+    } catch (e) {
+      console.error("Erro ao salvar desenho do projeto:", e);
+      alert("Erro ao salvar o Quadro do Projeto.");
+    } finally {
+      setIsSavingDrawing(false);
+    }
+  };
+
   const openIdea = (idea: Idea) => {
     setSelectedIdea(idea);
     setEditNotes(idea.notes || "");
-    setEditDrawing(idea.drawing || "");
   };
 
-  const saveCanvas = async () => {
+  const saveIdea = async () => {
     if (!selectedIdea?.id) return;
-    setIsSaving(true);
+    setIsSavingIdea(true);
     try {
       await updateDoc(doc(db, "ideas", selectedIdea.id), {
-        notes: editNotes,
-        drawing: editDrawing
+        notes: editNotes
       });
       setSelectedIdea(null);
     } catch (e) {
-      console.error("Erro ao salvar:", e);
-      alert("Erro ao salvar o Canvas.");
+      console.error("Erro ao salvar ideia:", e);
+      alert("Erro ao salvar a Ideia.");
     } finally {
-      setIsSaving(false);
+      setIsSavingIdea(false);
     }
   };
 
   return (
     <div className="p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
+      <NewIdeaModal isOpen={isNewIdeaModalOpen} onClose={() => setIsNewIdeaModalOpen(false)} defaultProject={projectName} />
+
       <Link href="/projetos" className="inline-flex items-center gap-2 text-white/50 hover:text-white transition-colors mb-6 text-sm font-medium w-fit">
         <ArrowLeft size={16} /> Voltar para o HUB de Projetos
       </Link>
@@ -85,7 +116,20 @@ export default function ProjetoDetalhePage({ params }: { params: Promise<{ name:
           <p className="text-white/50 mt-4">Painel exclusivo para ideias, features e brainstorms ligados a este ecossistema.</p>
         </div>
         
-        <div className="flex gap-3">
+        <div className="flex gap-4">
+          <button 
+            onClick={() => setIsNewIdeaModalOpen(true)}
+            className="px-6 py-2 bg-white text-black hover:bg-white/90 rounded-full font-medium flex items-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-all"
+          >
+            <PlusCircle size={16} /> Adicionar
+          </button>
+          <button 
+            onClick={() => setShowWhiteboard(true)}
+            className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-full font-medium flex items-center gap-2 shadow-[0_0_20px_rgba(147,51,234,0.3)] transition-all"
+          >
+            <PenTool size={16} /> Lousa do Projeto
+          </button>
+          
           <div className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm font-medium flex items-center gap-2">
             <Filter size={16} className="text-white/40" /> 
             {ideas.length} Registros Encontrados
@@ -111,10 +155,10 @@ export default function ProjetoDetalhePage({ params }: { params: Promise<{ name:
         </div>
       )}
 
-      {/* Modal Reutilizado */}
+      {/* Modal da Ideia Individual (Texto apenas) */}
       {selectedIdea && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-10 bg-black/60 backdrop-blur-sm">
-          <div className="glass w-full max-w-6xl h-[90vh] rounded-3xl p-8 flex flex-col relative animate-in fade-in zoom-in-95 duration-200">
+          <div className="glass w-full max-w-4xl h-[85vh] rounded-3xl p-8 flex flex-col relative animate-in fade-in zoom-in-95 duration-200">
             <button onClick={() => setSelectedIdea(null)} className="absolute top-6 right-6 text-white/50 hover:text-white bg-white/5 p-2 rounded-full transition-colors z-20">
               <X size={20} />
             </button>
@@ -133,40 +177,70 @@ export default function ProjetoDetalhePage({ params }: { params: Promise<{ name:
               {selectedIdea.title} <Sparkles className="text-purple-400 w-6 h-6" />
             </h2>
             
-            <div className="flex-1 w-full bg-black/30 border border-white/5 rounded-2xl p-6 mt-4 overflow-y-auto flex flex-col lg:flex-row gap-8">
-              <div className="flex-1 flex flex-col gap-6">
-                <div className="text-white/80 text-base leading-relaxed whitespace-pre-wrap">
-                  {selectedIdea.desc}
-                </div>
-                
-                <div className="mt-auto border-t border-white/10 pt-6">
-                  <h4 className="text-white/50 text-sm font-semibold mb-4 uppercase tracking-wider">Discussão & Notas do Projeto</h4>
-                  <textarea 
-                    value={editNotes}
-                    onChange={(e) => setEditNotes(e.target.value)}
-                    placeholder="Escreva novas anotações, adicione contextos ou desenvolva mais essa ideia aqui..." 
-                    className="w-full min-h-[120px] bg-white/5 rounded-xl border border-white/10 p-4 outline-none text-white placeholder:text-white/30 resize-y focus:border-purple-500/50 transition-colors"
-                  />
-                </div>
+            <div className="flex-1 w-full bg-black/30 border border-white/5 rounded-2xl p-6 mt-4 overflow-y-auto">
+              <div className="text-white/80 text-base leading-relaxed whitespace-pre-wrap">
+                {selectedIdea.desc}
               </div>
-
-              {/* Quadro Branco Interativo */}
-              <div className="w-full lg:w-[450px] border-l border-white/10 pl-0 lg:pl-8 flex flex-col gap-4">
-                <h4 className="text-white/50 text-sm font-semibold uppercase tracking-wider">Lousa de Brainstorm (Rascunho)</h4>
-                <div className="flex-1 min-h-[350px]">
-                  {require('@/components/Whiteboard').Whiteboard({
-                    initialData: selectedIdea.drawing,
-                    onSave: (data: string) => setEditDrawing(data)
-                  })}
-                </div>
+              
+              <div className="mt-10 border-t border-white/10 pt-6">
+                <h4 className="text-white/50 text-sm font-semibold mb-4 uppercase tracking-wider">Discussão & Notas Adicionais</h4>
+                <textarea 
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  placeholder="Escreva novas anotações, adicione contextos ou desenvolva mais essa ideia aqui..." 
+                  className="w-full min-h-[120px] bg-white/5 rounded-xl border border-white/10 p-4 outline-none text-white placeholder:text-white/30 resize-y focus:border-purple-500/50 transition-colors"
+                />
               </div>
             </div>
             
             <div className="mt-6 flex justify-end">
-              <button onClick={saveCanvas} disabled={isSaving} className="bg-purple-600 text-white px-8 py-3 rounded-xl font-medium hover:bg-purple-700 transition-colors shadow-[0_0_20px_rgba(147,51,234,0.3)] disabled:opacity-50 flex items-center gap-2">
-                {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : "Salvar Quadro e Alterações"}
+              <button onClick={saveIdea} disabled={isSavingIdea} className="bg-purple-600 text-white px-8 py-3 rounded-xl font-medium hover:bg-purple-700 transition-colors shadow-[0_0_20px_rgba(147,51,234,0.3)] disabled:opacity-50 flex items-center gap-2">
+                {isSavingIdea ? <Loader2 className="w-5 h-5 animate-spin" /> : "Salvar Alterações"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Tela Cheia do Quadro Branco do Projeto */}
+      {showWhiteboard && (
+        <div className="fixed inset-0 z-[60] bg-black/95 flex flex-col animate-in fade-in duration-200">
+          <header className="px-6 py-4 flex justify-between items-center bg-white/5 border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-white">
+                <PenTool size={16} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg leading-tight">Quadro Branco: {projectName}</h3>
+                <p className="text-xs text-white/50">Desenhe mapas mentais e arquiteturas para este projeto.</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-4">
+              <button onClick={() => setShowWhiteboard(false)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-medium transition-colors">
+                Cancelar
+              </button>
+              <button 
+                onClick={() => saveProjectCanvas(projectDrawing)}
+                disabled={isSavingDrawing}
+                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                {isSavingDrawing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar Quadro"}
+              </button>
+            </div>
+          </header>
+          
+          <div className="flex-1 w-full h-full p-4 relative">
+            {!drawingLoaded ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
+              </div>
+            ) : (
+              <Whiteboard 
+                initialData={projectDrawing}
+                onSave={(data) => setProjectDrawing(data)}
+              />
+            )}
           </div>
         </div>
       )}
