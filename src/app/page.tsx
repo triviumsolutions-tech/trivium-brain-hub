@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { IdeaCard, Idea } from "@/components/IdeaCard";
 import { UploadModal } from "@/components/UploadModal";
 import { Mic, Search, X, Folder, Sparkles, Loader2, PlusCircle } from "lucide-react";
@@ -22,6 +23,9 @@ export default function Home() {
   const [isSaving, setIsSaving] = useState(false);
   
   const [isNewIdeaModalOpen, setIsNewIdeaModalOpen] = useState(false);
+  
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Busca em tempo real do Firebase
   useEffect(() => {
@@ -147,9 +151,9 @@ export default function Home() {
       </div>
 
       {/* Modal / Canvas da Ideia */}
-      {selectedIdea && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-10 bg-black/60 backdrop-blur-sm">
-          <div className="glass w-full max-w-6xl h-[90vh] rounded-3xl p-8 flex flex-col relative animate-in fade-in zoom-in-95 duration-200">
+      {selectedIdea && mounted && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-10 bg-black/60 backdrop-blur-sm">
+          <div className="glass w-full max-w-6xl h-[90vh] rounded-3xl p-8 flex flex-col relative animate-in fade-in zoom-in-95 duration-200 shadow-2xl">
             <button onClick={() => setSelectedIdea(null)} className="absolute top-6 right-6 text-white/50 hover:text-white bg-white/5 p-2 rounded-full transition-colors z-20">
               <X size={20} />
             </button>
@@ -190,7 +194,8 @@ export default function Home() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

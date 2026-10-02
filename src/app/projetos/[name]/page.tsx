@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import { createPortal } from "react-dom";
 import { collection, onSnapshot, query, where, doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { IdeaCard, Idea } from "@/components/IdeaCard";
@@ -28,6 +29,9 @@ export default function ProjetoDetalhePage({ params }: { params: Promise<{ name:
   
   // State modal criação
   const [isNewIdeaModalOpen, setIsNewIdeaModalOpen] = useState(false);
+  
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     const q = query(collection(db, "ideas"), where("project", "==", projectName));
@@ -102,7 +106,7 @@ export default function ProjetoDetalhePage({ params }: { params: Promise<{ name:
       <NewIdeaModal isOpen={isNewIdeaModalOpen} onClose={() => setIsNewIdeaModalOpen(false)} defaultProject={projectName} />
       
       {/* Modal Tela Cheia do Quadro Branco do Projeto */}
-      {showWhiteboard && (
+      {showWhiteboard && mounted && createPortal(
         <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-in fade-in duration-200">
           <header className="px-6 py-4 flex justify-between items-center bg-white/5 border-b border-white/10">
             <div className="flex items-center gap-3">
@@ -141,7 +145,8 @@ export default function ProjetoDetalhePage({ params }: { params: Promise<{ name:
               />
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <div className="p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
@@ -200,9 +205,9 @@ export default function ProjetoDetalhePage({ params }: { params: Promise<{ name:
       )}
 
       {/* Modal da Ideia Individual (Texto apenas) */}
-      {selectedIdea && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-10 bg-black/60 backdrop-blur-sm">
-          <div className="glass w-full max-w-4xl h-[85vh] rounded-3xl p-8 flex flex-col relative animate-in fade-in zoom-in-95 duration-200">
+      {selectedIdea && mounted && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-10 bg-black/60 backdrop-blur-sm">
+          <div className="glass w-full max-w-4xl h-[85vh] rounded-3xl p-8 flex flex-col relative animate-in fade-in zoom-in-95 duration-200 shadow-2xl">
             <button onClick={() => setSelectedIdea(null)} className="absolute top-6 right-6 text-white/50 hover:text-white bg-white/5 p-2 rounded-full transition-colors z-20">
               <X size={20} />
             </button>
@@ -243,7 +248,8 @@ export default function ProjetoDetalhePage({ params }: { params: Promise<{ name:
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
         {/* Glow effect */}

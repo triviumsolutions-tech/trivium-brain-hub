@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Loader2, X } from "lucide-react";
@@ -17,8 +18,11 @@ export function NewIdeaModal({ isOpen, onClose, defaultProject = "" }: NewIdeaMo
   const [desc, setDesc] = useState("");
   const [stage, setStage] = useState("Semente");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const handleSave = () => {
     if (!title || !desc) {
@@ -28,7 +32,6 @@ export function NewIdeaModal({ isOpen, onClose, defaultProject = "" }: NewIdeaMo
     
     setIsSubmitting(true);
     
-    // Status visual mapping (Hack rápido pro MVP baseado na fase)
     let statusText = "Nova Ideia";
     let statusColor = "bg-emerald-500";
     
@@ -49,12 +52,11 @@ export function NewIdeaModal({ isOpen, onClose, defaultProject = "" }: NewIdeaMo
       desc,
       status: statusText,
       statusColor,
-      stage, // Adicionando a fase real ao documento
+      stage,
       createdAt: new Date().toISOString()
     }).then(() => {
       setIsSubmitting(false);
       onClose();
-      // Reset form
       setTitle("");
       setDesc("");
       setProject(defaultProject);
@@ -65,9 +67,9 @@ export function NewIdeaModal({ isOpen, onClose, defaultProject = "" }: NewIdeaMo
     });
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="glass w-full max-w-2xl rounded-3xl p-8 flex flex-col relative animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+      <div className="glass w-full max-w-2xl rounded-3xl p-8 flex flex-col relative animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto shadow-2xl">
         <button 
           onClick={onClose} 
           className="absolute top-6 right-6 text-white/50 hover:text-white bg-white/5 p-2 rounded-full transition-colors z-10"
@@ -134,6 +136,7 @@ export function NewIdeaModal({ isOpen, onClose, defaultProject = "" }: NewIdeaMo
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

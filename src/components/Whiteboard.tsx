@@ -5,7 +5,7 @@ import { Eraser, Pencil, Trash2 } from "lucide-react";
 export function Whiteboard({ initialData, onSave }: { initialData?: string, onSave?: (data: string) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [color, setColor] = useState("#a855f7"); // purple
+  const [color, setColor] = useState("#000000"); // Preto como cor padrão
   const [isErasing, setIsErasing] = useState(false);
 
   useEffect(() => {
@@ -14,12 +14,12 @@ export function Whiteboard({ initialData, onSave }: { initialData?: string, onSa
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     
-    // Set internal resolution
+    // Configura a resolução interna do canvas para o tamanho real do elemento HTML
     canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight || 600; // Fallback caso não tenha height
+    canvas.height = canvas.offsetHeight || 600; 
     
-    // Fill background
-    ctx.fillStyle = "rgba(0,0,0,0.1)";
+    // Preenche o fundo com BRANCO PURO
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     if (initialData) {
@@ -63,12 +63,13 @@ export function Whiteboard({ initialData, onSave }: { initialData?: string, onSa
     const x = clientX - rect.left;
     const y = clientY - rect.top;
 
-    ctx.lineWidth = isErasing ? 25 : 3;
+    ctx.lineWidth = isErasing ? 30 : 3;
     ctx.lineCap = "round";
     
     if (isErasing) {
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.strokeStyle = "rgba(0,0,0,1)";
+      // Ao apagar, desenha por cima com branco (pois o fundo é branco)
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = "#ffffff";
     } else {
       ctx.globalCompositeOperation = "source-over";
       ctx.strokeStyle = color;
@@ -85,19 +86,19 @@ export function Whiteboard({ initialData, onSave }: { initialData?: string, onSa
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "rgba(0,0,0,0.1)";
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     if (onSave) onSave("");
   };
 
   return (
-    <div className="flex flex-col gap-3 w-full">
+    <div className="flex flex-col gap-3 w-full h-full">
       <div className="flex justify-between items-center bg-white/5 p-2 rounded-xl border border-white/10">
         <div className="flex gap-2">
-          <button onClick={() => setIsErasing(false)} className={`p-2 rounded-lg transition-colors ${!isErasing ? 'bg-purple-600' : 'hover:bg-white/10'}`} title="Lápis">
+          <button onClick={() => setIsErasing(false)} className={`p-2 rounded-lg transition-colors ${!isErasing ? 'bg-purple-600 text-white' : 'hover:bg-white/10 text-white/70'}`} title="Lápis">
             <Pencil size={18} />
           </button>
-          <button onClick={() => setIsErasing(true)} className={`p-2 rounded-lg transition-colors ${isErasing ? 'bg-purple-600' : 'hover:bg-white/10'}`} title="Borracha">
+          <button onClick={() => setIsErasing(true)} className={`p-2 rounded-lg transition-colors ${isErasing ? 'bg-purple-600 text-white' : 'hover:bg-white/10 text-white/70'}`} title="Borracha">
             <Eraser size={18} />
           </button>
           <input 
@@ -112,7 +113,7 @@ export function Whiteboard({ initialData, onSave }: { initialData?: string, onSa
           <Trash2 size={16} /> Limpar Quadro
         </button>
       </div>
-      <div className="flex-1 rounded-xl border border-white/10 overflow-hidden bg-black/20 cursor-crosshair relative min-h-[300px]">
+      <div className="flex-1 rounded-xl border border-white/20 overflow-hidden bg-white shadow-inner cursor-crosshair relative min-h-[500px]">
         <canvas
           ref={canvasRef}
           onMouseDown={startDrawing}
