@@ -127,16 +127,16 @@ export default function Home() {
               {selectedIdea.title} <Sparkles className="text-purple-400 w-6 h-6" />
             </h2>
             
-            <div className="flex-1 w-full bg-black/30 border border-white/5 rounded-2xl p-6 mt-4">
-              <p className="text-white/70 text-lg leading-relaxed whitespace-pre-wrap">
+            <div className="flex-1 w-full bg-black/30 border border-white/5 rounded-2xl p-6 mt-4 overflow-y-auto">
+              <div className="text-white/80 text-base leading-relaxed whitespace-pre-wrap">
                 {selectedIdea.desc}
-              </p>
+              </div>
               
               <div className="mt-10 border-t border-white/10 pt-6">
                 <h4 className="text-white/50 text-sm font-semibold mb-4 uppercase tracking-wider">Discussão & Notas do Canvas</h4>
                 <textarea 
                   placeholder="Escreva novas anotações, adicione contextos ou desenvolva mais essa ideia aqui..." 
-                  className="w-full h-32 bg-transparent border-none outline-none text-white placeholder:text-white/20 resize-none"
+                  className="w-full min-h-[120px] bg-white/5 rounded-xl border border-white/10 p-4 outline-none text-white placeholder:text-white/30 resize-y focus:border-purple-500/50 transition-colors"
                 />
               </div>
             </div>
