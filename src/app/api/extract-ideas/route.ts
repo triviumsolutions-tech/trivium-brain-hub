@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+import { generateContentWithFallback } from "@/lib/gemini";
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
-    const existingProjects = formData.get("existingProjects") as string || "";
+    const existingProjects = (formData.get("existingProjects") as string) || "";
 
     if (!file) {
       return NextResponse.json({ error: "Nenhum arquivo de áudio recebido." }, { status: 400 });
@@ -15,8 +13,6 @@ export async function POST(req: NextRequest) {
 
     const arrayBuffer = await file.arrayBuffer();
     const base64Audio = Buffer.from(arrayBuffer).toString("base64");
-
-    const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
 
     const prompt = `Você é o Diretor de Tecnologia e Produto da Trivium, atuando como o Motor de Ingestão do Trivium Brain Hub.
 Ouça este áudio de reunião/brainstorm detalhadamente.
@@ -47,14 +43,19 @@ Sua missão obedece às seguintes regras arquiteturais estritas:
 
 IMPORTANTE: Retorne estritamente o objeto JSON válido, sem texto fora do JSON.`;
 
-    const result = await model.generateContent([
+    const mimeType =
+      file.type && file.type !== "application/octet-stream"
+        ? file.type
+        : "audio/webm";
+
+    const { result, modelName } = await generateContentWithFallback([
       prompt,
       {
         inlineData: {
-          mimeType: file.type,
-          data: base64Audio
-        }
-      }
+          mimeType,
+          data: base64Audio,
+        },
+      },
     ]);
 
     const responseText = result.response.text();
@@ -67,13 +68,13 @@ IMPORTANTE: Retorne estritamente o objeto JSON válido, sem texto fora do JSON.`
     const suggestions = Array.isArray(parsedData.suggestions) ? parsedData.suggestions : [];
     const meetingMinutes = parsedData.meetingMinutes || "Ata da reunião registrada.";
 
-    // Retorna tanto formato novo estruturado quanto retrocompatibilidade com 'ideas'
+    console.log(`[Extract Ideas] Áudio processado via ${modelName}`);
+
     return NextResponse.json({
       meetingMinutes,
       suggestions,
-      ideas: suggestions
+      ideas: suggestions,
     });
-
   } catch (error: unknown) {
     console.error("Erro na rota do Gemini:", error);
     const message = error instanceof Error ? error.message : "Erro desconhecido";

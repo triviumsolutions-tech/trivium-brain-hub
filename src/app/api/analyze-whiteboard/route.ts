@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+import { generateContentWithFallback } from "@/lib/gemini";
 
 export async function POST(req: NextRequest) {
   try {
     const { projectName, projectDescription, whiteboardData } = await req.json();
-
-    const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
 
     const prompt = `Você é um Arquiteto de Software e Tech Lead da Trivium.
 Você está inspecionando o Quadro Branco técnico do projeto "${projectName}".
@@ -29,7 +25,7 @@ Retorne APENAS uma Array JSON contendo entre 3 e 6 tarefas acionáveis, no segui
 
 Retorne estritamente o JSON válido sem formatação markdown fora dos colchetes.`;
 
-    const result = await model.generateContent(prompt);
+    const { result, modelName } = await generateContentWithFallback(prompt);
     const responseText = result.response.text();
 
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
@@ -38,6 +34,7 @@ Retorne estritamente o JSON válido sem formatação markdown fora dos colchetes
     }
 
     const tasks = JSON.parse(jsonMatch[0]);
+    console.log(`[Whiteboard] Lousa analisada via ${modelName}`);
 
     return NextResponse.json({ tasks });
   } catch (error: unknown) {

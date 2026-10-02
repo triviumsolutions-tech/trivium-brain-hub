@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+import { generateContentWithFallback } from "@/lib/gemini";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,8 +8,6 @@ export async function POST(req: NextRequest) {
     if (!question) {
       return NextResponse.json({ error: "Pergunta não fornecida." }, { status: 400 });
     }
-
-    const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
 
     const prompt = `Você é o Oráculo Institucional da Trivium (Trivium Brain Hub).
 Sua missão é responder perguntas estratégicas, técnicas e de gestão dos sócios e colaboradores baseando-se RIGOROSAMENTE no acervo e na verdade histórica da empresa fornecida no contexto abaixo.
@@ -34,8 +30,9 @@ DIRETRIZES DE RESPOSTA:
 4. Se algo não estiver no contexto, deixe claro que ainda não foi registrado no Brain Hub e sugira como registrar.
 5. Estruture a resposta com formatação Markdown rica (títulos, bullet points, tabelas quando útil).`;
 
-    const result = await model.generateContent(prompt);
+    const { result, modelName } = await generateContentWithFallback(prompt);
     const answer = result.response.text();
+    console.log(`[Oracle] Respondido com sucesso via ${modelName}`);
 
     return NextResponse.json({ answer });
   } catch (error: unknown) {
