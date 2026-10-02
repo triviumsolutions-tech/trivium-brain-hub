@@ -133,7 +133,7 @@ export default function ProjetoDetalhePage({ params }: { params: Promise<{ name:
             </div>
           </header>
           
-          <div className="flex-1 w-full h-full p-4 relative">
+          <div className="flex-1 w-full h-full p-2 relative overflow-hidden">
             {!drawingLoaded ? (
               <div className="absolute inset-0 flex items-center justify-center">
                 <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
