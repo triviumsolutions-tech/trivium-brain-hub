@@ -361,7 +361,7 @@ export default function ProjetoDetalhePage({
       )}
 
       {/* Conteúdo Principal da Página do Projeto */}
-      <div className="p-8 md:p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
+      <div className="p-4 sm:p-6 md:p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
         <Link
           href="/projetos"
           className="inline-flex items-center gap-2 text-white/50 hover:text-white transition-colors mb-6 text-xs font-medium w-fit"
@@ -568,16 +568,22 @@ export default function ProjetoDetalhePage({
 
         {/* MODO 1: QUADRO KANBAN OFICIAL */}
         {viewMode === "kanban" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 flex-1">
-            {PROJECT_STATUSES.map((col) => {
-              const colTasks = tasks.filter((t) => t.status === col.label);
-              const ColIcon = col.icon;
+          <div className="flex flex-col flex-1">
+            <div className="md:hidden flex items-center justify-between text-[11px] text-white/40 mb-2 px-1">
+              <span>👉 Deslize para ver todas as colunas</span>
+              <span className="font-mono text-purple-400">4 colunas</span>
+            </div>
 
-              return (
-                <div
-                  key={col.label}
-                  className="glass rounded-2xl p-4 flex flex-col min-h-[500px] border border-white/5"
-                >
+            <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto pb-6 snap-x snap-mandatory flex-1 -mx-4 px-4 md:mx-0 md:px-0">
+              {PROJECT_STATUSES.map((col) => {
+                const colTasks = tasks.filter((t) => t.status === col.label);
+                const ColIcon = col.icon;
+
+                return (
+                  <div
+                    key={col.label}
+                    className="w-[82vw] sm:w-[320px] md:w-auto shrink-0 md:shrink glass rounded-2xl p-4 flex flex-col min-h-[480px] border border-white/5 snap-center"
+                  >
                   <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/10">
                     <div className="flex items-center gap-2">
                       <ColIcon size={14} className="text-white/60" />
@@ -687,7 +693,8 @@ export default function ProjetoDetalhePage({
               );
             })}
           </div>
-        )}
+        </div>
+      )}
 
         {/* MODO 2: LISTA DE IDEIAS VINCULADAS */}
         {viewMode === "ideas" && (

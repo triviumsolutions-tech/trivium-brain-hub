@@ -181,16 +181,16 @@ export default function ComoUsarPage() {
             actionLink={{ label: "Agendar na Home", href: "/" }}
           />
 
-          {/* Case 7: Oráculo Consultivo e Auditoria */}
+          {/* Case 7: Trivium AI Consultiva, Visão e Voz */}
           <CaseCard
             step="07"
-            title="Consultar o Oráculo Estratégico por Voz ou Texto"
-            tag="RAG + Voz + BI"
+            title="Consultar a Trivium AI por Voz, Texto ou Imagens"
+            tag="Multimodal • Voz • Visão • RAG"
             color="violet"
             icon={<Sparkles size={20} className="text-violet-400" />}
-            situation="Você quer saber se já discutimos determinada tecnologia, auditar quais ideias aprovadas ainda não viraram tarefas ou conferir métricas."
-            howTo="Abra o 'Oráculo IA' no menu lateral. Você pode digitar ou clicar no Microfone para falar em voz alta. Pergunte, por exemplo: 'Valide o projeto Lectio: quais ideias aprovadas ainda não têm tarefas no Kanban?'. O Oráculo cruza todo o acervo do Firestore e responde com análise profunda e áudio!"
-            actionLink={{ label: "Consultar o Oráculo", href: "/oraculo" }}
+            situation="Você quer auditar projetos, checar tarefas pendentes, analisar prints de arquiteturas ou conversar em áudio sobre o futuro da empresa."
+            howTo="Abra 'Trivium AI' no menu lateral. Você pode digitar, falar em voz alta pelo Microfone ou anexar/colar prints (Ctrl+V) de diagramas e telas. A Trivium AI cruza todo o acervo de projetos, ideias e atas em tempo real e responde em áudio e texto!"
+            actionLink={{ label: "Abrir a Trivium AI", href: "/trivium-ai" }}
           />
         </div>
       </section>

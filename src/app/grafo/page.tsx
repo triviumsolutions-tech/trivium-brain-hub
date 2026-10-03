@@ -93,23 +93,28 @@ export default function TriviumGraphPage() {
     searchTermRef.current = searchTerm;
   }, [nodes, edges, selectedNode, hoveredNode, pan, zoom, filterType, searchTerm]);
 
-  // Constrói nós e arestas com conexões neurais
+  // Constrói nós e arestas com conexões neurais (preservando posições existentes para evitar bouncing)
   const buildGraph = useCallback(
     (ideas: Idea[], projects: Project[], meetings: MeetingDoc[]) => {
       const centerX = 600;
       const centerY = 450;
 
+      // Mapeia nós anteriores para preservar coordenadas estáveis e evitar saltos/bouncing
+      const existingNodeMap = new Map<string, GraphNode>();
+      nodesRef.current.forEach((n) => existingNodeMap.set(n.id, n));
+
       const newNodes: GraphNode[] = [];
       const newEdges: GraphEdge[] = [];
 
       // 1. Nó Central: Trivium Hub (Núcleo)
+      const existingCore = existingNodeMap.get("trivium-core");
       newNodes.push({
         id: "trivium-core",
         label: "Trivium Hub",
         type: "core",
         desc: "Núcleo neural de inteligência estratégica, inovação e projetos da Trivium.",
-        x: centerX,
-        y: centerY,
+        x: existingCore ? existingCore.x : centerX,
+        y: existingCore ? existingCore.y : centerY,
         vx: 0,
         vy: 0,
         radius: 46,
@@ -137,6 +142,7 @@ export default function TriviumGraphPage() {
         const dist = 260 + (idx % 2) * 50;
         const pNodeId = `proj-${pName}`;
         const existingProj = projects.find((p) => p.name === pName);
+        const existingNode = existingNodeMap.get(pNodeId);
 
         newNodes.push({
           id: pNodeId,
@@ -146,10 +152,10 @@ export default function TriviumGraphPage() {
           department: existingProj?.department || "Engenharia",
           painPoint: existingProj?.painPoint,
           raw: existingProj,
-          x: centerX + Math.cos(angle) * dist,
-          y: centerY + Math.sin(angle) * dist,
-          vx: 0,
-          vy: 0,
+          x: existingNode ? existingNode.x : centerX + Math.cos(angle) * dist,
+          y: existingNode ? existingNode.y : centerY + Math.sin(angle) * dist,
+          vx: existingNode ? existingNode.vx * 0.05 : 0,
+          vy: existingNode ? existingNode.vy * 0.05 : 0,
           radius: 32,
           color:
             existingProj?.status === "Desenvolvimento"
@@ -181,6 +187,7 @@ export default function TriviumGraphPage() {
         const angle = (idx * 0.75) % (Math.PI * 2);
         const dist = 390 + (idx % 3) * 60;
         const ideaNodeId = `idea-${idea.id || idx}`;
+        const existingNode = existingNodeMap.get(ideaNodeId);
 
         newNodes.push({
           id: ideaNodeId,
@@ -191,10 +198,10 @@ export default function TriviumGraphPage() {
           desc: idea.desc,
           painPoint: idea.painPoint,
           raw: idea,
-          x: centerX + Math.cos(angle) * dist,
-          y: centerY + Math.sin(angle) * dist,
-          vx: 0,
-          vy: 0,
+          x: existingNode ? existingNode.x : centerX + Math.cos(angle) * dist,
+          y: existingNode ? existingNode.y : centerY + Math.sin(angle) * dist,
+          vx: existingNode ? existingNode.vx * 0.05 : 0,
+          vy: existingNode ? existingNode.vy * 0.05 : 0,
           radius: 20,
           color:
             idea.status === "Aprovada"
@@ -225,6 +232,7 @@ export default function TriviumGraphPage() {
         const angle = (idx * 1.4) % (Math.PI * 2);
         const dist = 430 + (idx % 2) * 50;
         const meetNodeId = `meet-${meet.id || idx}`;
+        const existingNode = existingNodeMap.get(meetNodeId);
 
         newNodes.push({
           id: meetNodeId,
@@ -232,10 +240,10 @@ export default function TriviumGraphPage() {
           type: "meeting",
           desc: meet.meetingMinutes,
           raw: meet,
-          x: centerX + Math.cos(angle) * dist,
-          y: centerY + Math.sin(angle) * dist,
-          vx: 0,
-          vy: 0,
+          x: existingNode ? existingNode.x : centerX + Math.cos(angle) * dist,
+          y: existingNode ? existingNode.y : centerY + Math.sin(angle) * dist,
+          vx: existingNode ? existingNode.vx * 0.05 : 0,
+          vy: existingNode ? existingNode.vy * 0.05 : 0,
           radius: 20,
           color: "#0d9488",
           borderColor: "#5eead4",
@@ -360,13 +368,15 @@ export default function TriviumGraphPage() {
       }
     });
 
-    // Amortecimento
+    // Amortecimento suave e estabilização para eliminar bouncing
     currentNodes.forEach((node) => {
       if (node.id === "trivium-core" || node === isDraggingNodeRef.current) return;
       node.x += node.vx;
       node.y += node.vy;
-      node.vx *= 0.88;
-      node.vy *= 0.88;
+      node.vx *= 0.80;
+      node.vy *= 0.80;
+      if (Math.abs(node.vx) < 0.015) node.vx = 0;
+      if (Math.abs(node.vy) < 0.015) node.vy = 0;
     });
   }, []);
 
@@ -788,6 +798,80 @@ export default function TriviumGraphPage() {
     isPanningRef.current = false;
   };
 
+  // Suporte a Touch para Celulares e Tablets (Single Touch Pan/Drag + Pinch-to-Zoom)
+  const touchStartDistRef = useRef<number | null>(null);
+  const touchStartZoomRef = useRef<number>(1);
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const worldPoint = screenToWorld(touch.clientX, touch.clientY);
+
+      const clickedNode = nodesRef.current.find((n) => {
+        if (filterType !== "all" && n.type !== filterType && n.type !== "core") return false;
+        const dx = n.x - worldPoint.x;
+        const dy = n.y - worldPoint.y;
+        return Math.sqrt(dx * dx + dy * dy) <= n.radius + 12; // Hitbox expandida para dedo
+      });
+
+      if (clickedNode) {
+        isDraggingNodeRef.current = clickedNode;
+        setSelectedNode(clickedNode);
+      } else {
+        isPanningRef.current = true;
+        panStartRef.current = {
+          x: touch.clientX - pan.x,
+          y: touch.clientY - pan.y,
+        };
+      }
+    } else if (e.touches.length === 2) {
+      // 2 dedos: Pinch to Zoom
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      touchStartDistRef.current = dist;
+      touchStartZoomRef.current = zoom;
+      isDraggingNodeRef.current = null;
+      isPanningRef.current = false;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+
+      if (isDraggingNodeRef.current) {
+        const worldPoint = screenToWorld(touch.clientX, touch.clientY);
+        isDraggingNodeRef.current.x = worldPoint.x;
+        isDraggingNodeRef.current.y = worldPoint.y;
+        isDraggingNodeRef.current.vx = 0;
+        isDraggingNodeRef.current.vy = 0;
+        return;
+      }
+
+      if (isPanningRef.current) {
+        setPan({
+          x: touch.clientX - panStartRef.current.x,
+          y: touch.clientY - panStartRef.current.y,
+        });
+      }
+    } else if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      // Pinch to Zoom dinâmico
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const ratio = dist / touchStartDistRef.current;
+      const newZoom = Math.min(Math.max(touchStartZoomRef.current * ratio, 0.2), 3);
+      setZoom(newZoom);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    isDraggingNodeRef.current = null;
+    isPanningRef.current = false;
+    touchStartDistRef.current = null;
+  };
+
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     const canvas = canvasRef.current;
@@ -887,11 +971,11 @@ export default function TriviumGraphPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-extrabold text-sm tracking-tight text-white flex items-center gap-1.5">
-                Trivium Graph
+                Brain
               </h1>
               <span className="flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                NEURAL LINK
+                NEURAL BRAIN
               </span>
             </div>
             <p className="text-[11px] text-white/50">
@@ -959,20 +1043,20 @@ export default function TriviumGraphPage() {
       </header>
 
       {/* Widget de Zoom & Centralizar */}
-      <div className="absolute bottom-6 right-6 z-30 flex items-center gap-2 p-1.5 rounded-2xl bg-neutral-900/90 backdrop-blur-xl border border-white/10 shadow-2xl text-white">
+      <div className="absolute bottom-20 md:bottom-6 right-4 md:right-6 z-30 flex items-center gap-1.5 sm:gap-2 p-1.5 rounded-2xl bg-neutral-900/90 backdrop-blur-xl border border-white/10 shadow-2xl text-white">
         <button
           onClick={() => setZoom((z) => Math.max(z * 0.85, 0.2))}
-          className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+          className="p-1.5 sm:p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors"
           title="Diminuir Zoom"
         >
           <ZoomOut size={16} />
         </button>
-        <span className="px-2 text-xs font-mono font-bold text-purple-300">
+        <span className="px-1.5 sm:px-2 text-xs font-mono font-bold text-purple-300">
           {Math.round(zoom * 100)}%
         </span>
         <button
           onClick={() => setZoom((z) => Math.min(z * 1.15, 3))}
-          className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+          className="p-1.5 sm:p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors"
           title="Aumentar Zoom"
         >
           <ZoomIn size={16} />
@@ -980,37 +1064,41 @@ export default function TriviumGraphPage() {
         <div className="h-4 w-px bg-white/10" />
         <button
           onClick={resetView}
-          className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1.5 text-xs font-semibold"
+          className="p-1.5 sm:p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1.5 text-xs font-semibold"
           title="Centralizar Câmera no Trivium Hub"
         >
           <Compass size={15} className="text-purple-400" />
-          <span>Centralizar</span>
+          <span className="hidden xs:inline">Centralizar</span>
         </button>
       </div>
 
       {/* Dica de navegação no canto inferior esquerdo */}
-      <div className="absolute bottom-6 left-6 z-30 hidden sm:flex items-center gap-3 text-[11px] font-mono text-white/40 bg-neutral-900/80 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/5">
+      <div className="absolute bottom-20 md:bottom-6 left-4 md:left-6 z-30 hidden sm:flex items-center gap-3 text-[11px] font-mono text-white/40 bg-neutral-900/80 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/5">
         <span>Arraste para mover câmera</span>
         <span>•</span>
-        <span>Scroll para zoom</span>
+        <span>Scroll / Pinça para zoom</span>
         <span>•</span>
-        <span>Clique nos nós para inspecionar conexões</span>
+        <span>Toque nos nós para inspecionar</span>
       </div>
 
       {/* Canvas Principal */}
       <canvas
         ref={canvasRef}
-        className="w-full h-full cursor-grab active:cursor-grabbing"
+        className="w-full h-full cursor-grab active:cursor-grabbing touch-none"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       />
 
       {/* DRAWER LATERAL DE ALTA FIDELIDADE: CONEXÕES & RELACIONAMENTOS */}
       {selectedNode && (
-        <aside className="absolute top-6 bottom-6 right-6 w-96 max-w-[calc(100vw-3rem)] z-40 bg-neutral-900/95 backdrop-blur-2xl border border-white/15 rounded-3xl p-6 flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-in slide-in-from-right duration-250">
+        <aside className="fixed md:absolute top-4 md:top-6 bottom-20 md:bottom-6 left-4 md:left-auto right-4 md:right-6 w-auto md:w-96 z-50 bg-neutral-900/95 backdrop-blur-2xl border border-white/15 rounded-3xl p-5 md:p-6 flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-in slide-in-from-right duration-250">
           {/* Header do Drawer */}
           <div className="flex justify-between items-start mb-3">
             <span

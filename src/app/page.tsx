@@ -355,7 +355,7 @@ export default function Home() {
         existingProjects={existingProjects}
       />
 
-      <div className="p-8 md:p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
+      <div className="p-4 sm:p-6 md:p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
         {/* Top Header */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10">
           <div>

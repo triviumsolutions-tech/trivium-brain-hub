@@ -6,10 +6,11 @@ export const genAI = new GoogleGenerativeAI(apiKey);
 // Modelos ordenados por preferência e disponibilidade
 // Caso o modelo primário sofra picos de demanda (503), o próximo assume imediatamente
 export const CANDIDATE_MODELS = [
+  "gemini-flash-latest",
+  "gemini-3.5-flash",
   "gemini-3.7-flash",
   "gemini-3.6-flash",
   "gemini-3.8-flash",
-  "gemini-3.5-transcribe",
 ];
 
 export async function generateContentWithFallback(

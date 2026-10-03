@@ -66,9 +66,9 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   if (!user && !isLogin) return null;
 
   return (
-    <div className="flex min-h-screen w-full">
+    <div className="flex flex-col md:flex-row min-h-screen w-full">
       {!isLogin && <Sidebar />}
-      <main className={`flex-1 ${!isLogin ? 'overflow-y-auto' : ''}`}>
+      <main className={`flex-1 min-w-0 w-full ${!isLogin ? "overflow-y-auto pb-24 md:pb-0" : ""}`}>
         {children}
       </main>
     </div>

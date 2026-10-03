@@ -123,7 +123,7 @@ export default function ProjetosPage() {
   }, []);
 
   return (
-    <div className="p-8 md:p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
+    <div className="p-4 sm:p-6 md:p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
       <header className="flex justify-between items-end mb-10 pb-6 border-b border-white/10">
         <div>
           <span className="text-xs uppercase font-mono px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 mb-2 inline-block">
