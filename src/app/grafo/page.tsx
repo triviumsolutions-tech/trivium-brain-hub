@@ -113,8 +113,8 @@ export default function TriviumGraphPage() {
         label: "Trivium Hub",
         type: "core",
         desc: "Núcleo neural de inteligência estratégica, inovação e projetos da Trivium.",
-        x: existingCore ? existingCore.x : centerX,
-        y: existingCore ? existingCore.y : centerY,
+        x: existingCore && Number.isFinite(existingCore.x) ? existingCore.x : centerX,
+        y: existingCore && Number.isFinite(existingCore.y) ? existingCore.y : centerY,
         vx: 0,
         vy: 0,
         radius: 46,
@@ -152,10 +152,10 @@ export default function TriviumGraphPage() {
           department: existingProj?.department || "Engenharia",
           painPoint: existingProj?.painPoint,
           raw: existingProj,
-          x: existingNode ? existingNode.x : centerX + Math.cos(angle) * dist,
-          y: existingNode ? existingNode.y : centerY + Math.sin(angle) * dist,
-          vx: existingNode ? existingNode.vx * 0.05 : 0,
-          vy: existingNode ? existingNode.vy * 0.05 : 0,
+          x: existingNode && Number.isFinite(existingNode.x) ? existingNode.x : centerX + Math.cos(angle) * dist,
+          y: existingNode && Number.isFinite(existingNode.y) ? existingNode.y : centerY + Math.sin(angle) * dist,
+          vx: existingNode && Number.isFinite(existingNode.vx) ? existingNode.vx * 0.05 : 0,
+          vy: existingNode && Number.isFinite(existingNode.vy) ? existingNode.vy * 0.05 : 0,
           radius: 32,
           color:
             existingProj?.status === "Desenvolvimento"
@@ -198,10 +198,10 @@ export default function TriviumGraphPage() {
           desc: idea.desc,
           painPoint: idea.painPoint,
           raw: idea,
-          x: existingNode ? existingNode.x : centerX + Math.cos(angle) * dist,
-          y: existingNode ? existingNode.y : centerY + Math.sin(angle) * dist,
-          vx: existingNode ? existingNode.vx * 0.05 : 0,
-          vy: existingNode ? existingNode.vy * 0.05 : 0,
+          x: existingNode && Number.isFinite(existingNode.x) ? existingNode.x : centerX + Math.cos(angle) * dist,
+          y: existingNode && Number.isFinite(existingNode.y) ? existingNode.y : centerY + Math.sin(angle) * dist,
+          vx: existingNode && Number.isFinite(existingNode.vx) ? existingNode.vx * 0.05 : 0,
+          vy: existingNode && Number.isFinite(existingNode.vy) ? existingNode.vy * 0.05 : 0,
           radius: 20,
           color:
             idea.status === "Aprovada"
@@ -240,10 +240,10 @@ export default function TriviumGraphPage() {
           type: "meeting",
           desc: meet.meetingMinutes,
           raw: meet,
-          x: existingNode ? existingNode.x : centerX + Math.cos(angle) * dist,
-          y: existingNode ? existingNode.y : centerY + Math.sin(angle) * dist,
-          vx: existingNode ? existingNode.vx * 0.05 : 0,
-          vy: existingNode ? existingNode.vy * 0.05 : 0,
+          x: existingNode && Number.isFinite(existingNode.x) ? existingNode.x : centerX + Math.cos(angle) * dist,
+          y: existingNode && Number.isFinite(existingNode.y) ? existingNode.y : centerY + Math.sin(angle) * dist,
+          vx: existingNode && Number.isFinite(existingNode.vx) ? existingNode.vx * 0.05 : 0,
+          vy: existingNode && Number.isFinite(existingNode.vy) ? existingNode.vy * 0.05 : 0,
           radius: 20,
           color: "#0d9488",
           borderColor: "#5eead4",
@@ -324,20 +324,27 @@ export default function TriviumGraphPage() {
       for (let j = i + 1; j < currentNodes.length; j++) {
         const a = currentNodes[i];
         const b = currentNodes[j];
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const minDist = a.radius + b.radius + 60;
+        if (!a || !b) continue;
+
+        const ax = Number.isFinite(a.x) ? a.x : 600;
+        const ay = Number.isFinite(a.y) ? a.y : 450;
+        const bx = Number.isFinite(b.x) ? b.x : 600;
+        const by = Number.isFinite(b.y) ? b.y : 450;
+
+        const dx = bx - ax;
+        const dy = by - ay;
+        const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+        const minDist = (a.radius || 20) + (b.radius || 20) + 60;
 
         if (dist < minDist) {
-          const force = ((minDist - dist) / dist) * 0.08;
+          const force = Math.min(2, Math.max(0, ((minDist - dist) / dist) * 0.08));
           if (a.id !== "trivium-core" && a !== isDraggingNodeRef.current) {
-            a.vx -= dx * force;
-            a.vy -= dy * force;
+            a.vx = (a.vx || 0) - dx * force;
+            a.vy = (a.vy || 0) - dy * force;
           }
           if (b.id !== "trivium-core" && b !== isDraggingNodeRef.current) {
-            b.vx += dx * force;
-            b.vy += dy * force;
+            b.vx = (b.vx || 0) + dx * force;
+            b.vy = (b.vy || 0) + dy * force;
           }
         }
       }
@@ -352,24 +359,44 @@ export default function TriviumGraphPage() {
       const tgt = nodeMap.get(edge.target);
       if (!src || !tgt) return;
 
-      const dx = tgt.x - src.x;
-      const dy = tgt.y - src.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const sx = Number.isFinite(src.x) ? src.x : 600;
+      const sy = Number.isFinite(src.y) ? src.y : 450;
+      const tx = Number.isFinite(tgt.x) ? tgt.x : 600;
+      const ty = Number.isFinite(tgt.y) ? tgt.y : 450;
+
+      const dx = tx - sx;
+      const dy = ty - sy;
+      const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
       const targetDist = src.id === "trivium-core" ? 240 : 140;
-      const force = (dist - targetDist) * 0.003;
+      const force = Math.max(-2, Math.min(2, (dist - targetDist) * 0.003));
 
       if (src.id !== "trivium-core" && src !== isDraggingNodeRef.current) {
-        src.vx += dx * force;
-        src.vy += dy * force;
+        src.vx = (src.vx || 0) + dx * force;
+        src.vy = (src.vy || 0) + dy * force;
       }
       if (tgt.id !== "trivium-core" && tgt !== isDraggingNodeRef.current) {
-        tgt.vx -= dx * force;
-        tgt.vy -= dy * force;
+        tgt.vx = (tgt.vx || 0) - dx * force;
+        tgt.vy = (tgt.vy || 0) - dy * force;
       }
     });
 
-    // Amortecimento suave e estabilização para eliminar bouncing
+    // Amortecimento suave, sanitização e estabilização para eliminar bouncing
     currentNodes.forEach((node) => {
+      if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) {
+        node.x = 600 + (Math.random() - 0.5) * 100;
+        node.y = 450 + (Math.random() - 0.5) * 100;
+        node.vx = 0;
+        node.vy = 0;
+        return;
+      }
+
+      if (!Number.isFinite(node.vx)) node.vx = 0;
+      if (!Number.isFinite(node.vy)) node.vy = 0;
+
+      // Clamping de velocidade máxima
+      node.vx = Math.max(-12, Math.min(12, node.vx));
+      node.vy = Math.max(-12, Math.min(12, node.vy));
+
       if (node.id === "trivium-core" || node === isDraggingNodeRef.current) return;
       node.x += node.vx;
       node.y += node.vy;
@@ -534,25 +561,34 @@ export default function TriviumGraphPage() {
         ctx.globalAlpha = 0.22;
       }
 
+      // Sanitização de coordenadas e raio para garantir valores finitos
+      const nx = Number.isFinite(node.x) ? node.x : 600;
+      const ny = Number.isFinite(node.y) ? node.y : 450;
+      const nr = Number.isFinite(node.radius) && node.radius > 0 ? node.radius : 20;
+
+      node.x = nx;
+      node.y = ny;
+      node.radius = nr;
+
       // Efeito de Sonar / Pulso no Trivium Hub
       if (node.type === "core") {
-        const pulseSize = node.radius + ((time * 25) % 45);
-        const pulseAlpha = 1 - ((time * 25) % 45) / 45;
+        const pulseSize = nr + ((time * 25) % 45);
+        const pulseAlpha = Math.max(0, 1 - ((time * 25) % 45) / 45);
         ctx.beginPath();
-        ctx.arc(node.x, node.y, pulseSize, 0, Math.PI * 2);
+        ctx.arc(nx, ny, pulseSize, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(192, 132, 252, ${pulseAlpha * 0.45})`;
-        ctx.lineWidth = 2 / currentZoom;
+        ctx.lineWidth = Math.max(0.5, 2 / (currentZoom || 1));
         ctx.stroke();
 
         // Anel orbital tracejado rotativo
         ctx.save();
-        ctx.translate(node.x, node.y);
+        ctx.translate(nx, ny);
         ctx.rotate(time * 0.35);
         ctx.beginPath();
-        ctx.arc(0, 0, node.radius + 14, 0, Math.PI * 2);
+        ctx.arc(0, 0, nr + 14, 0, Math.PI * 2);
         ctx.setLineDash([8, 10]);
         ctx.strokeStyle = "rgba(192, 132, 252, 0.5)";
-        ctx.lineWidth = 1.5 / currentZoom;
+        ctx.lineWidth = Math.max(0.5, 1.5 / (currentZoom || 1));
         ctx.stroke();
         ctx.restore();
       }
@@ -560,13 +596,13 @@ export default function TriviumGraphPage() {
       // Anel de Aura em Projetos
       if (node.type === "project") {
         ctx.save();
-        ctx.translate(node.x, node.y);
+        ctx.translate(nx, ny);
         ctx.rotate(-time * 0.25);
         ctx.beginPath();
-        ctx.arc(0, 0, node.radius + 8, 0, Math.PI * 2);
+        ctx.arc(0, 0, nr + 8, 0, Math.PI * 2);
         ctx.setLineDash([4, 14]);
-        ctx.strokeStyle = `${node.borderColor}80`;
-        ctx.lineWidth = 1.5 / currentZoom;
+        ctx.strokeStyle = `${node.borderColor || "#38bdf8"}80`;
+        ctx.lineWidth = Math.max(0.5, 1.5 / (currentZoom || 1));
         ctx.stroke();
         ctx.restore();
       }
@@ -574,34 +610,36 @@ export default function TriviumGraphPage() {
       // Glow exterior se selecionado ou buscando
       if (isSelected || isHovered || isMatchSearch) {
         ctx.beginPath();
-        ctx.arc(node.x, node.y, node.radius + 12, 0, Math.PI * 2);
+        ctx.arc(nx, ny, nr + 12, 0, Math.PI * 2);
         ctx.fillStyle = isSelected
           ? "rgba(56, 189, 248, 0.35)"
           : "rgba(168, 85, 247, 0.3)";
         ctx.fill();
       }
 
-      // Corpo Central do Nó (Gradiente Radial)
+      // Corpo Central do Nó (Gradiente Radial 100% Seguro com Raio Finito)
+      const rInner = Math.max(0.1, nr * 0.1);
+      const rOuter = Math.max(rInner + 1, nr);
       const grad = ctx.createRadialGradient(
-        node.x - node.radius * 0.3,
-        node.y - node.radius * 0.3,
-        node.radius * 0.1,
-        node.x,
-        node.y,
-        node.radius
+        nx - nr * 0.3,
+        ny - nr * 0.3,
+        rInner,
+        nx,
+        ny,
+        rOuter
       );
-      grad.addColorStop(0, node.borderColor);
-      grad.addColorStop(1, node.color);
+      grad.addColorStop(0, node.borderColor || "#ffffff");
+      grad.addColorStop(1, node.color || "#9333ea");
 
       ctx.beginPath();
-      ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+      ctx.arc(nx, ny, nr, 0, Math.PI * 2);
       ctx.fillStyle = grad;
       ctx.fill();
 
       // Borda Neon
       ctx.lineWidth = isSelected ? 3.5 : 2;
-      ctx.strokeStyle = isSelected ? "#ffffff" : node.borderColor;
-      ctx.shadowColor = node.pulseColor || node.borderColor;
+      ctx.strokeStyle = isSelected ? "#ffffff" : node.borderColor || "#c084fc";
+      ctx.shadowColor = node.pulseColor || node.borderColor || "#c084fc";
       ctx.shadowBlur = isSelected ? 20 : 10;
       ctx.stroke();
 
@@ -611,7 +649,7 @@ export default function TriviumGraphPage() {
         ctx.font = "bold 16px Inter, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText("TB", node.x, node.y);
+        ctx.fillText("TB", nx, ny);
       }
 
       // Label do Nó (Tipografia Moderna)
@@ -629,7 +667,7 @@ export default function TriviumGraphPage() {
           ? labelText.slice(0, maxLabelLen) + "..."
           : labelText;
 
-      ctx.fillText(displayLabel, node.x, node.y + node.radius + 16);
+      ctx.fillText(displayLabel, nx, ny + nr + 16);
 
       // Badge de Status em Projetos
       if (node.type === "project" && node.status) {
@@ -640,7 +678,7 @@ export default function TriviumGraphPage() {
             : node.status === "Finalizado"
             ? "#60a5fa"
             : "#cbd5e1";
-        ctx.fillText(node.status.toUpperCase(), node.x, node.y + node.radius + 28);
+        ctx.fillText(node.status.toUpperCase(), nx, ny + nr + 28);
       }
 
       ctx.restore();
@@ -690,13 +728,16 @@ export default function TriviumGraphPage() {
   // Converte coordenadas de tela para o mundo no Canvas
   const screenToWorld = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
+    if (!canvas) return { x: 600, y: 450 };
     const rect = canvas.getBoundingClientRect();
     const screenX = clientX - rect.left;
     const screenY = clientY - rect.top;
+    const safeZoom = Number.isFinite(zoomRef.current) && zoomRef.current > 0.05 ? zoomRef.current : 1;
+    const safePanX = Number.isFinite(panRef.current.x) ? panRef.current.x : 0;
+    const safePanY = Number.isFinite(panRef.current.y) ? panRef.current.y : 0;
     return {
-      x: (screenX - panRef.current.x) / zoomRef.current,
-      y: (screenY - panRef.current.y) / zoomRef.current,
+      x: (screenX - safePanX) / safeZoom,
+      y: (screenY - safePanY) / safeZoom,
     };
   }, []);
 
@@ -855,14 +896,19 @@ export default function TriviumGraphPage() {
           y: touch.clientY - panStartRef.current.y,
         });
       }
-    } else if (e.touches.length === 2 && touchStartDistRef.current !== null) {
-      // Pinch to Zoom dinâmico
+    } else if (e.touches.length === 2 && touchStartDistRef.current !== null && touchStartDistRef.current > 5) {
+      // Pinch to Zoom dinâmico seguro
       const t1 = e.touches[0];
       const t2 = e.touches[1];
       const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-      const ratio = dist / touchStartDistRef.current;
-      const newZoom = Math.min(Math.max(touchStartZoomRef.current * ratio, 0.2), 3);
-      setZoom(newZoom);
+      if (Number.isFinite(dist) && dist > 5) {
+        const ratio = dist / touchStartDistRef.current;
+        const baseZoom = Number.isFinite(touchStartZoomRef.current) && touchStartZoomRef.current > 0.05 ? touchStartZoomRef.current : 1;
+        const newZoom = Math.min(Math.max(baseZoom * ratio, 0.2), 3);
+        if (Number.isFinite(newZoom)) {
+          setZoom(newZoom);
+        }
+      }
     }
   };
 
@@ -881,14 +927,20 @@ export default function TriviumGraphPage() {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
+    const currentValidZoom = Number.isFinite(zoom) && zoom > 0.05 ? zoom : 1;
+    const currentValidPanX = Number.isFinite(pan.x) ? pan.x : 0;
+    const currentValidPanY = Number.isFinite(pan.y) ? pan.y : 0;
+
     const zoomFactor = e.deltaY < 0 ? 1.15 : 0.88;
-    const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.2), 3);
+    const newZoom = Math.min(Math.max(currentValidZoom * zoomFactor, 0.2), 3);
 
-    const newPanX = mouseX - (mouseX - pan.x) * (newZoom / zoom);
-    const newPanY = mouseY - (mouseY - pan.y) * (newZoom / zoom);
+    const newPanX = mouseX - (mouseX - currentValidPanX) * (newZoom / currentValidZoom);
+    const newPanY = mouseY - (mouseY - currentValidPanY) * (newZoom / currentValidZoom);
 
-    setZoom(newZoom);
-    setPan({ x: newPanX, y: newPanY });
+    if (Number.isFinite(newZoom) && Number.isFinite(newPanX) && Number.isFinite(newPanY)) {
+      setZoom(newZoom);
+      setPan({ x: newPanX, y: newPanY });
+    }
   };
 
   const resetView = () => {
