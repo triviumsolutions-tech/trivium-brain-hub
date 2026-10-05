@@ -19,6 +19,15 @@ interface SuggestedTask {
   priority?: "alta" | "media" | "baixa";
 }
 
+interface SuggestedProjectAction {
+  action: "create" | "delete";
+  projectName: string;
+  department?: string;
+  painPoint?: string;
+  status?: string;
+  reason?: string;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { question, history, images, contextData } = await req.json();
@@ -48,7 +57,32 @@ DIRETRIZES DA TRIVIUM AI:
    - Identifique a dor cadastrada, departamento e status atual.
    - Cruze com as tarefas mapeadas no Kanban (Backlog, Em Desenvolvimento, Finalizado).
    - Realize ANÁLISE DE GAPS: aponte o que foi pensado nas ideias mas ainda NÃO tem tarefa correspondente no Kanban.
-4. MAPEAMENTO E CRIAÇÃO INTERATIVA DE TAREFAS PARA O KANBAN (Human-in-the-Loop):
+4. PROTOCOLO DE AÇÃO RIGOROSO & HUMAN-IN-THE-LOOP (A PALAVRA FINAL É SEMPRE DO USUÁRIO):
+   - Você é um conselheiro executivo e técnico. Você NUNCA tem autonomia para modificar o banco de dados diretamente sem o clique/comando explícito de aprovação do usuário.
+   - NUNCA finja ou afirme falsamente que já criou, alterou ou removeu um projeto ou tarefas no Firestore (ex: JAMAIS diga "removi o projeto", "criei o projeto oficial" ou "já adicionei as tarefas ao Kanban").
+   - Em vez disso, explique sua estratégia, apresente a recomendação técnica e FORNEÇA O BLOCO DE AÇÃO estruturado para que o usuário analise e autorize com 1 clique.
+   - Se o usuário pedir para criar, inicializar ou transformar ideias em um projeto oficial:
+     Gere no final da resposta:
+     \`\`\`json:project_action
+     {
+       "action": "create",
+       "projectName": "nome-do-projeto",
+       "department": "Produto",
+       "painPoint": "Descrição concisa e assertiva da dor resolvida",
+       "status": "Desenvolvimento",
+       "reason": "Motivo estratégico da criação deste projeto"
+     }
+     \`\`\`
+   - Se o usuário pedir para remover, deletar ou cancelar um projeto:
+     Gere no final da resposta:
+     \`\`\`json:project_action
+     {
+       "action": "delete",
+       "projectName": "Nome Exato do Projeto",
+       "reason": "Motivo da remoção solicitada pelo usuário"
+     }
+     \`\`\`
+5. MAPEAMENTO E CRIAÇÃO INTERATIVA DE TAREFAS PARA O KANBAN:
    - Se o usuário pedir para mapear, sugerir, planejar, organizar ou criar tarefas para um projeto específico (ou perguntar o que falta fazer no Kanban de um projeto):
    - Apresente sua análise executiva com a lista detalhada das tarefas no texto.
    - OBRIGATORIAMENTE, no final da resposta, inclua um bloco JSON delimitado por \`\`\`json:tasks ... \`\`\` no seguinte formato exato:
@@ -66,9 +100,9 @@ DIRETRIZES DA TRIVIUM AI:
    \`\`\`
    (Onde "priority" deve ser "alta", "media" ou "baixa").
    - Se o usuário pedir para organizar, alterar prioridades ou remover tarefas de uma lista anterior, devolva o bloco \`\`\`json:tasks com a lista ajustada.
-5. HISTÓRICO DA CONVERSA:
+6. HISTÓRICO DA CONVERSA:
    - Mantenha continuidade contextual com as mensagens trocadas anteriormente nesta sessão.
-6. FORMATAÇÃO E CLAREZA:
+7. FORMATAÇÃO E CLAREZA:
    - Estruture sua resposta com Markdown elegante (títulos claros, bullet points destacados, listas e tabelas se necessário).
    - Seja assertivo, direto ao ponto e agregue valor real de negócio e engenharia.`;
 
@@ -112,7 +146,22 @@ DIRETRIZES DA TRIVIUM AI:
     // Extração Multi-Estratégia de Tarefas do Kanban (JSON ou Markdown)
     let suggestedTasks: SuggestedTask[] | undefined;
     let targetProject: string | undefined;
+    let suggestedProjectAction: SuggestedProjectAction | undefined;
     let cleanAnswer = rawAnswer;
+
+    // Extração de Ação de Projeto (json:project_action)
+    const actionMatch = rawAnswer.match(/```json:project_action\s*([\s\S]*?)\s*```/);
+    if (actionMatch && actionMatch[1]) {
+      try {
+        const parsed = JSON.parse(actionMatch[1]);
+        if (parsed.action && parsed.projectName) {
+          suggestedProjectAction = parsed;
+          cleanAnswer = cleanAnswer.replace(/```json:project_action[\s\S]*?```/, "").trim();
+        }
+      } catch (err) {
+        console.warn("Erro ao fazer parse de json:project_action:", err);
+      }
+    }
 
     // Estratégia 1: Bloco específico ```json:tasks ... ```
     const taskMatch = rawAnswer.match(/```json:tasks\s*([\s\S]*?)\s*```/);
@@ -122,7 +171,7 @@ DIRETRIZES DA TRIVIUM AI:
         if (parsed.tasks && Array.isArray(parsed.tasks)) {
           suggestedTasks = parsed.tasks;
           targetProject = parsed.projectName;
-          cleanAnswer = rawAnswer.replace(/```json:tasks[\s\S]*?```/, "").trim();
+          cleanAnswer = cleanAnswer.replace(/```json:tasks[\s\S]*?```/, "").trim();
         }
       } catch (err) {
         console.warn("Erro ao fazer parse de json:tasks:", err);
@@ -138,7 +187,7 @@ DIRETRIZES DA TRIVIUM AI:
           if (parsed.tasks && Array.isArray(parsed.tasks)) {
             suggestedTasks = parsed.tasks;
             targetProject = parsed.projectName;
-            cleanAnswer = rawAnswer.replace(/```json[\s\S]*?```/, "").trim();
+            cleanAnswer = cleanAnswer.replace(/```json[\s\S]*?```/, "").trim();
           }
         } catch (err) {
           console.warn("Erro ao fazer parse de generic json:", err);
@@ -224,6 +273,7 @@ DIRETRIZES DA TRIVIUM AI:
       answer: cleanAnswer,
       suggestedTasks,
       targetProject,
+      suggestedProjectAction,
       model: modelName,
     });
   } catch (error: unknown) {

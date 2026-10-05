@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { collection, getDocs, setDoc, doc } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  setDoc,
+  doc,
+  deleteDoc,
+  updateDoc,
+  query,
+  where,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Sparkles,
@@ -31,6 +40,7 @@ import {
   ArrowUpRight,
   CheckSquare,
   RotateCcw,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { Idea, Project, MeetingDoc, KanbanTask } from "@/types";
@@ -48,6 +58,15 @@ interface SuggestedTaskItem {
   priority?: "alta" | "media" | "baixa";
 }
 
+interface SuggestedProjectAction {
+  action: "create" | "delete";
+  projectName: string;
+  department?: string;
+  painPoint?: string;
+  status?: string;
+  reason?: string;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -57,6 +76,8 @@ interface Message {
   suggestedTasks?: SuggestedTaskItem[];
   targetProject?: string;
   tasksAdded?: boolean;
+  suggestedProjectAction?: SuggestedProjectAction;
+  projectActionExecuted?: boolean;
 }
 
 interface StatsData {
@@ -96,6 +117,9 @@ export default function TriviumAIPage() {
   // Estados de Tarefas do Kanban (Human-in-the-Loop)
   const [selectedTasksMap, setSelectedTasksMap] = useState<Record<number, Record<number, boolean>>>({});
   const [applyingTaskMessageIndex, setApplyingTaskMessageIndex] = useState<number | null>(null);
+
+  // Estados de Ações em Projetos (Human-in-the-Loop)
+  const [executingProjectActionIndex, setExecutingProjectActionIndex] = useState<number | null>(null);
 
   // Estados de Áudio e Modo Conversa por Voz
   const [autoSpeak, setAutoSpeak] = useState(true); // Resposta por voz automática
@@ -726,6 +750,78 @@ export default function TriviumAIPage() {
     }
   };
 
+  // Executa Ação em Projeto (Criar ou Excluir) sob Autorização Expressa do Usuário (Human-in-the-Loop)
+  const handleExecuteProjectAction = async (
+    action: SuggestedProjectAction,
+    messageIndex: number
+  ) => {
+    try {
+      setExecutingProjectActionIndex(messageIndex);
+
+      if (action.action === "create") {
+        await setDoc(
+          doc(db, "projects", action.projectName),
+          {
+            name: action.projectName,
+            status: action.status || "Desenvolvimento",
+            department: action.department || "Produto",
+            painPoint: action.painPoint || "",
+            createdAt: new Date().toISOString(),
+            tasks: [],
+          },
+          { merge: true }
+        );
+
+        setMessages((prev) =>
+          prev.map((msg, idx) =>
+            idx === messageIndex ? { ...msg, projectActionExecuted: true } : msg
+          )
+        );
+
+        if (autoSpeak) {
+          speakText(
+            `Projeto ${action.projectName} criado com sucesso sob sua autorização!`,
+            messageIndex
+          );
+        }
+      } else if (action.action === "delete") {
+        // 1. Remove documento do projeto
+        await deleteDoc(doc(db, "projects", action.projectName));
+
+        // 2. Desvincula ideias associadas para não reaparecer como projeto implícito
+        const ideaQuery = query(
+          collection(db, "ideas"),
+          where("project", "==", action.projectName)
+        );
+        const snap = await getDocs(ideaQuery);
+        for (const d of snap.docs) {
+          await updateDoc(doc(db, "ideas", d.id), {
+            project: "Caixa de Entrada",
+            status: "Rascunho",
+          });
+        }
+
+        setMessages((prev) =>
+          prev.map((msg, idx) =>
+            idx === messageIndex ? { ...msg, projectActionExecuted: true } : msg
+          )
+        );
+
+        if (autoSpeak) {
+          speakText(
+            `Projeto ${action.projectName} excluído com sucesso sob sua autorização!`,
+            messageIndex
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao executar ação de projeto:", err);
+      alert("Não foi possível executar a ação no projeto.");
+    } finally {
+      setExecutingProjectActionIndex(null);
+    }
+  };
+
   // Envio de Pergunta Multimodal (Texto + Áudio + Imagens + Histórico)
   const handleSend = async (questionText?: string, forceAutoSpeak?: boolean) => {
     const textToSend = (questionText !== undefined ? questionText : input).trim();
@@ -858,6 +954,7 @@ ${meetings
         model: data.model,
         suggestedTasks: data.suggestedTasks,
         targetProject: data.targetProject,
+        suggestedProjectAction: data.suggestedProjectAction,
       };
 
       setMessages((prev) => {
@@ -1159,6 +1256,119 @@ ${meetings
               )}
 
               <div className="whitespace-pre-wrap">{msg.content}</div>
+
+              {/* Card Interativo de Ação em Projeto (Criar / Excluir) sob Human-in-the-Loop */}
+              {msg.suggestedProjectAction && (
+                <div
+                  className={`mt-4 p-4 rounded-2xl border shadow-xl space-y-3 animate-in fade-in duration-200 ${
+                    msg.suggestedProjectAction.action === "delete"
+                      ? "bg-red-950/40 border-red-500/40"
+                      : "bg-purple-950/40 border-purple-500/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`p-1.5 rounded-lg ${
+                          msg.suggestedProjectAction.action === "delete"
+                            ? "bg-red-500/20 text-red-300"
+                            : "bg-purple-500/20 text-purple-300"
+                        }`}
+                      >
+                        {msg.suggestedProjectAction.action === "delete" ? (
+                          <Trash2 size={16} />
+                        ) : (
+                          <Folder size={16} />
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-xs text-white">
+                          {msg.suggestedProjectAction.action === "delete"
+                            ? "Confirmação de Exclusão de Projeto"
+                            : "Proposta de Criação de Projeto Oficial"}
+                        </h4>
+                        <span className="text-[10px] text-white/60 font-mono">
+                          Projeto: <strong className="text-white">{msg.suggestedProjectAction.projectName}</strong>
+                        </span>
+                      </div>
+                    </div>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${
+                        msg.suggestedProjectAction.action === "delete"
+                          ? "bg-red-500/20 text-red-300 border-red-500/30"
+                          : "bg-purple-500/20 text-purple-300 border-purple-500/30"
+                      }`}
+                    >
+                      {msg.suggestedProjectAction.action === "delete" ? "Exclusão" : "Criação"}
+                    </span>
+                  </div>
+
+                  {msg.suggestedProjectAction.reason && (
+                    <p className="text-xs text-white/70 leading-relaxed">
+                      {msg.suggestedProjectAction.reason}
+                    </p>
+                  )}
+
+                  {msg.suggestedProjectAction.painPoint && (
+                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white/80">
+                      <strong className="text-purple-300">Dor cadastrada:</strong>{" "}
+                      {msg.suggestedProjectAction.painPoint}
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2 flex-wrap">
+                    {msg.projectActionExecuted ? (
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5">
+                          <CheckCircle2 size={15} /> Ação executada com sucesso sob sua autorização!
+                        </span>
+                        {msg.suggestedProjectAction.action === "create" && (
+                          <Link
+                            href={`/projetos/${encodeURIComponent(msg.suggestedProjectAction.projectName)}`}
+                            className="px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 text-xs font-semibold flex items-center gap-1 transition-all"
+                          >
+                            <span>Abrir Projeto</span>
+                            <ArrowUpRight size={13} />
+                          </Link>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-[11px] text-white/50">
+                          Aguardando sua autorização expressa (Human-in-the-Loop)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleExecuteProjectAction(msg.suggestedProjectAction!, i)}
+                          disabled={executingProjectActionIndex === i}
+                          className={`px-4 py-2 rounded-xl text-white font-semibold text-xs flex items-center gap-2 shadow-lg disabled:opacity-50 transition-all ml-auto ${
+                            msg.suggestedProjectAction.action === "delete"
+                              ? "bg-red-600 hover:bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+                              : "bg-purple-600 hover:bg-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.4)]"
+                          }`}
+                        >
+                          {executingProjectActionIndex === i ? (
+                            <>
+                              <Loader2 size={13} className="animate-spin" />
+                              <span>Executando...</span>
+                            </>
+                          ) : msg.suggestedProjectAction.action === "delete" ? (
+                            <>
+                              <Trash2 size={13} />
+                              <span>Confirmar e Excluir Projeto</span>
+                            </>
+                          ) : (
+                            <>
+                              <Check size={13} />
+                              <span>Autorizar e Criar Projeto</span>
+                            </>
+                          )}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Card Interativo de Tarefas Mapeadas para o Kanban */}
               {msg.suggestedTasks && msg.suggestedTasks.length > 0 && (

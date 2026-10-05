@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import {
   collection,
   onSnapshot,
@@ -9,6 +10,9 @@ import {
   where,
   doc,
   setDoc,
+  deleteDoc,
+  updateDoc,
+  getDocs,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { logAuditEvent } from "@/lib/audit";
@@ -84,11 +88,42 @@ export default function ProjetoDetalhePage({
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [syncingJiraId, setSyncingJiraId] = useState<string | null>(null);
 
+  // Estados de Exclusão do Projeto
+  const router = useRouter();
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
+
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
     () => false
   );
+
+  const handleDeleteProject = async () => {
+    setIsDeletingProject(true);
+    try {
+      // 1. Remove documento da coleção 'projects'
+      await deleteDoc(doc(db, "projects", projectName));
+
+      // 2. Desvincula ideias associadas
+      const ideaQuery = query(collection(db, "ideas"), where("project", "==", projectName));
+      const snap = await getDocs(ideaQuery);
+      for (const d of snap.docs) {
+        await updateDoc(doc(db, "ideas", d.id), {
+          project: "Caixa de Entrada",
+          status: "Rascunho",
+        });
+      }
+
+      await logAuditEvent("PROJECT_DELETED", projectName, "Excluído da tela de detalhes");
+      router.push("/projetos");
+    } catch (err) {
+      console.error("Erro ao excluir projeto:", err);
+      alert("Não foi possível excluir o projeto.");
+    } finally {
+      setIsDeletingProject(false);
+    }
+  };
 
   // 1. Escuta Projeto no Firestore
   useEffect(() => {
@@ -362,6 +397,45 @@ export default function ProjetoDetalhePage({
 
       {/* Conteúdo Principal da Página do Projeto */}
       <div className="p-4 sm:p-6 md:p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
+        {/* Modal de Confirmação de Exclusão do Projeto */}
+        {isDeleteModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="glass max-w-md w-full rounded-3xl p-6 border border-red-500/30 shadow-2xl relative">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center mb-4 border border-red-500/30">
+                <AlertCircle size={24} />
+              </div>
+
+              <h3 className="text-lg font-bold text-white mb-2">Excluir Projeto</h3>
+              <p className="text-sm text-white/70 leading-relaxed mb-4">
+                Tem certeza que deseja excluir o projeto <strong className="text-white">&quot;{projectName}&quot;</strong>?
+              </p>
+              <p className="text-xs text-white/50 mb-6 bg-white/5 p-3 rounded-xl border border-white/10">
+                ℹ️ As ideias associadas serão desvinculadas e movidas de volta para a Caixa de Entrada.
+              </p>
+
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  disabled={isDeletingProject}
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white/70 hover:text-white text-xs font-semibold transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteProject}
+                  disabled={isDeletingProject}
+                  className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shadow-lg shadow-red-900/40 flex items-center gap-2 transition-all"
+                >
+                  {isDeletingProject ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  <span>{isDeletingProject ? "Excluindo..." : "Confirmar e Excluir"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <Link
           href="/projetos"
           className="inline-flex items-center gap-2 text-white/50 hover:text-white transition-colors mb-6 text-xs font-medium w-fit"
@@ -488,6 +562,17 @@ export default function ProjetoDetalhePage({
             >
               <Calendar size={13} />
               <span>Agendar Reunião</span>
+            </button>
+
+            {/* Excluir Projeto */}
+            <button
+              type="button"
+              onClick={() => setIsDeleteModalOpen(true)}
+              className="px-3.5 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-red-500/20 transition-colors"
+              title="Excluir este projeto"
+            >
+              <Trash2 size={13} />
+              <span>Excluir</span>
             </button>
           </div>
         </header>
