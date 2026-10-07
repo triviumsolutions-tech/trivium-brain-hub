@@ -47,7 +47,7 @@ import Link from "next/link";
 import { Whiteboard } from "@/components/Whiteboard";
 import { NewIdeaModal } from "@/components/NewIdeaModal";
 import { ScheduleMeetingModal } from "@/components/ScheduleMeetingModal";
-import { Idea, Project, ProjectStatus, KanbanTask, TaskComment } from "@/types";
+import { Idea, Project, ProjectStatus, KanbanTask } from "@/types";
 
 const PROJECT_STATUSES: { label: ProjectStatus; color: string; icon: LucideIcon }[] = [
   { label: "Backlog", color: "bg-blue-500/20 text-blue-300 border-blue-500/30", icon: Clock },
@@ -94,11 +94,27 @@ export default function ProjetoDetalhePage({
   const [newCommentCommit, setNewCommentCommit] = useState("");
   const [newCommentAuthor, setNewCommentAuthor] = useState("Sócio Trivium");
   const [isSavingComment, setIsSavingComment] = useState(false);
+  const [taskModalTab, setTaskModalTab] = useState<"comments" | "commits">("comments");
 
   // Estados de Exclusão do Projeto
   const router = useRouter();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
+
+  // Atalho global ESC para fechar modais
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedTaskForComments(null);
+        setSelectedIdea(null);
+        setShowWhiteboard(false);
+        setIsDeleteModalOpen(false);
+        setIsNewIdeaModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const mounted = useSyncExternalStore(
     () => () => {},
@@ -738,7 +754,8 @@ export default function ProjetoDetalhePage({
                       colTasks.map((task) => (
                         <div
                           key={task.id}
-                          className="p-3.5 bg-neutral-900/80 rounded-xl border border-white/10 hover:border-purple-500/40 transition-colors shadow group"
+                          onClick={() => setSelectedTaskForComments(task)}
+                          className="p-3.5 bg-neutral-900/80 rounded-xl border border-white/10 hover:border-purple-500/50 hover:bg-neutral-900 transition-all shadow group cursor-pointer"
                         >
                           <div className="flex justify-between items-start gap-2 mb-2">
                             <div className="flex flex-col gap-1">
@@ -752,7 +769,10 @@ export default function ProjetoDetalhePage({
                               </h4>
                             </div>
                             <button
-                              onClick={() => handleDeleteTask(task.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteTask(task.id);
+                              }}
                               className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 transition-opacity p-1"
                               title="Remover"
                             >
@@ -773,6 +793,7 @@ export default function ProjetoDetalhePage({
                                   href={task.jiraUrl || `https://triviumsolutions.atlassian.net/browse/${task.jiraKey}`}
                                   target="_blank"
                                   rel="noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
                                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-mono font-bold hover:bg-blue-500/30 transition-colors"
                                   title="Abrir ticket no Jira KAN"
                                 >
@@ -782,7 +803,10 @@ export default function ProjetoDetalhePage({
                               ) : (
                                 <button
                                   type="button"
-                                  onClick={() => handleSendToJira(task)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSendToJira(task);
+                                  }}
                                   disabled={syncingJiraId === task.id}
                                   className="inline-flex items-center gap-1 text-[10px] text-blue-400/80 hover:text-blue-300 transition-colors font-medium bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20"
                                   title="Vincular e enviar para o Jira KAN"
@@ -800,7 +824,10 @@ export default function ProjetoDetalhePage({
                               {/* Botão de Comentários & Commits */}
                               <button
                                 type="button"
-                                onClick={() => setSelectedTaskForComments(task)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTaskForComments(task);
+                                }}
                                 className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border transition-colors ${
                                   task.comments && task.comments.length > 0
                                     ? "bg-purple-500/20 text-purple-300 border-purple-500/30 font-semibold"
@@ -821,7 +848,8 @@ export default function ProjetoDetalhePage({
                           <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[10px] text-white/40">
                             {col.label !== "Backlog" && (
                               <button
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   const idx = PROJECT_STATUSES.findIndex((s) => s.label === col.label);
                                   handleMoveTask(task.id, PROJECT_STATUSES[idx - 1].label);
                                 }}
@@ -834,7 +862,8 @@ export default function ProjetoDetalhePage({
 
                             {col.label !== "Finalizado" && (
                               <button
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   const idx = PROJECT_STATUSES.findIndex((s) => s.label === col.label);
                                   handleMoveTask(task.id, PROJECT_STATUSES[idx + 1].label);
                                 }}
@@ -931,17 +960,19 @@ export default function ProjetoDetalhePage({
         document.body
       )}
 
-      {/* Modal de Comentários e Histórico da Tarefa */}
+      {/* Modal de Detalhes, Comentários e Histórico de Commits da Tarefa */}
       {selectedTaskForComments && mounted && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
           <div className="glass w-full max-w-2xl rounded-3xl p-6 md:p-8 relative border border-white/15 shadow-2xl flex flex-col max-h-[85vh]">
             <button
               onClick={() => setSelectedTaskForComments(null)}
               className="absolute top-6 right-6 text-white/50 hover:text-white p-2 rounded-full hover:bg-white/10"
+              title="Fechar (ESC)"
             >
               <X size={18} />
             </button>
 
+            {/* Topo do Modal */}
             <div className="flex items-center gap-2 mb-2">
               {selectedTaskForComments.code && (
                 <span className="font-mono text-xs font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
@@ -951,7 +982,7 @@ export default function ProjetoDetalhePage({
               <span className="text-xs text-white/50">{selectedTaskForComments.status}</span>
             </div>
 
-            <h2 className="text-xl font-bold mb-3 text-white pr-8">
+            <h2 className="text-xl font-bold mb-2 text-white pr-8">
               {selectedTaskForComments.title}
             </h2>
 
@@ -961,84 +992,270 @@ export default function ProjetoDetalhePage({
               </p>
             )}
 
-            {/* Lista de Comentários */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1 my-2">
-              {(!selectedTaskForComments.comments || selectedTaskForComments.comments.length === 0) ? (
-                <div className="py-8 text-center text-xs text-white/40 border border-dashed border-white/10 rounded-2xl">
-                  Nenhum comentário ou commit registrado nesta tarefa ainda.
-                </div>
-              ) : (
-                selectedTaskForComments.comments.map((comment) => (
-                  <div
-                    key={comment.id}
-                    className="p-3.5 bg-neutral-900/90 rounded-2xl border border-white/10 text-xs space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between text-[11px] text-white/50">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-white/90">{comment.author}</span>
-                        {comment.commitHash && (
-                          <span className="inline-flex items-center gap-1 font-mono text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                            <GitCommit size={10} />
-                            {comment.commitHash}
-                          </span>
-                        )}
-                      </div>
-                      <span>{new Date(comment.createdAt).toLocaleString("pt-BR")}</span>
-                    </div>
-                    <p className="text-white/80 whitespace-pre-wrap leading-relaxed">
-                      {comment.text}
-                    </p>
-                  </div>
-                ))
-              )}
+            {/* Seletor de Abas: Comentários vs Histórico de Commits */}
+            <div className="flex items-center gap-2 border-b border-white/10 pb-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setTaskModalTab("comments")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  taskModalTab === "comments"
+                    ? "bg-purple-600 text-white shadow-lg shadow-purple-900/40"
+                    : "text-white/50 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <MessageSquare size={13} />
+                <span>Comentários ({selectedTaskForComments.comments?.length || 0})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTaskModalTab("commits")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  taskModalTab === "commits"
+                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/40"
+                    : "text-white/50 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <GitCommit size={13} />
+                <span>
+                  Commits ({selectedTaskForComments.comments?.filter((c) => Boolean(c.commitHash)).length || 0})
+                </span>
+              </button>
             </div>
 
-            {/* Formulário Novo Comentário */}
-            <form onSubmit={handleAddComment} className="pt-4 border-t border-white/10 space-y-3 mt-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  value={newCommentAuthor}
-                  onChange={(e) => setNewCommentAuthor(e.target.value)}
-                  placeholder="Seu nome / autor"
-                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50"
-                />
-                <div className="relative">
-                  <GitCommit size={13} className="absolute left-3 top-2.5 text-white/30" />
-                  <input
-                    type="text"
-                    value={newCommentCommit}
-                    onChange={(e) => setNewCommentCommit(e.target.value)}
-                    placeholder="Commit Hash (ex: d302248) ou Branch"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder:text-white/30 font-mono focus:outline-none focus:border-purple-500/50"
-                  />
+            {/* ABA 1: COMENTÁRIOS COM DESIGN REFINADO */}
+            {taskModalTab === "comments" && (
+              <>
+                <div className="flex-1 overflow-y-auto space-y-3 pr-1 my-2">
+                  {(!selectedTaskForComments.comments || selectedTaskForComments.comments.length === 0) ? (
+                    <div className="py-8 text-center text-xs text-white/40 border border-dashed border-white/10 rounded-2xl">
+                      Nenhum comentário registrado nesta tarefa ainda.
+                    </div>
+                  ) : (
+                    selectedTaskForComments.comments.map((comment) => {
+                      const initials = comment.author
+                        .split(" ")
+                        .map((n) => n[0])
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase();
+
+                      return (
+                        <div
+                          key={comment.id}
+                          className="p-4 bg-neutral-900/90 rounded-2xl border border-white/10 text-xs space-y-2 hover:border-white/20 transition-colors"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0 shadow-sm">
+                                {initials || "TR"}
+                              </div>
+                              <div>
+                                <span className="font-semibold text-white/95 block text-xs leading-none">
+                                  {comment.author}
+                                </span>
+                                <span className="text-[10px] text-white/40 font-mono mt-0.5 block">
+                                  {new Date(comment.createdAt).toLocaleDateString("pt-BR", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
+                              </div>
+                            </div>
+
+                            {comment.commitHash && (
+                              <a
+                                href={`https://github.com/triviumsolutions-tech/${projectName}/commit/${comment.commitHash}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/20 transition-colors"
+                                title="Abrir commit no GitHub"
+                              >
+                                <GitCommit size={10} />
+                                <span>{comment.commitHash.slice(0, 7)}</span>
+                                <ExternalLink size={9} />
+                              </a>
+                            )}
+                          </div>
+
+                          <p className="text-white/80 whitespace-pre-wrap leading-relaxed pl-9">
+                            {comment.text}
+                          </p>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
-              </div>
-              <textarea
-                value={newCommentText}
-                onChange={(e) => setNewCommentText(e.target.value)}
-                placeholder="Escreva detalhes técnicos, decisões de código ou notas de implementação..."
-                rows={3}
-                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50 resize-none leading-relaxed"
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedTaskForComments(null)}
-                  className="px-4 py-2 rounded-xl text-xs text-white/60 hover:text-white bg-white/5 hover:bg-white/10"
-                >
-                  Fechar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingComment || !newCommentText.trim()}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-purple-600 hover:bg-purple-500 disabled:opacity-40 transition-colors flex items-center gap-1.5"
-                >
-                  {isSavingComment ? <Loader2 size={12} className="animate-spin" /> : <MessageSquare size={12} />}
-                  <span>Publicar Comentário</span>
-                </button>
-              </div>
-            </form>
+
+                {/* Formulário Novo Comentário */}
+                <form onSubmit={handleAddComment} className="pt-3 border-t border-white/10 space-y-2.5 mt-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={newCommentAuthor}
+                      onChange={(e) => setNewCommentAuthor(e.target.value)}
+                      placeholder="Seu nome / autor"
+                      className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50"
+                    />
+                    <div className="relative">
+                      <GitCommit size={13} className="absolute left-3 top-2.5 text-white/30" />
+                      <input
+                        type="text"
+                        value={newCommentCommit}
+                        onChange={(e) => setNewCommentCommit(e.target.value)}
+                        placeholder="Hash de Commit opcional (ex: 955916a)"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder:text-white/30 font-mono focus:outline-none focus:border-purple-500/50"
+                      />
+                    </div>
+                  </div>
+                  <textarea
+                    value={newCommentText}
+                    onChange={(e) => setNewCommentText(e.target.value)}
+                    placeholder="Escreva detalhes técnicos, decisões de código ou notas de implementação..."
+                    rows={2}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50 resize-none leading-relaxed"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTaskForComments(null)}
+                      className="px-4 py-2 rounded-xl text-xs text-white/60 hover:text-white bg-white/5 hover:bg-white/10"
+                    >
+                      Fechar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingComment || !newCommentText.trim()}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-purple-600 hover:bg-purple-500 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                    >
+                      {isSavingComment ? <Loader2 size={12} className="animate-spin" /> : <MessageSquare size={12} />}
+                      <span>Publicar Comentário</span>
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+
+            {/* ABA 2: HISTÓRICO DE COMMITS (GIT GRAPH TIMELINE) */}
+            {taskModalTab === "commits" && (
+              <>
+                <div className="flex-1 overflow-y-auto space-y-4 pr-1 my-2">
+                  {(() => {
+                    const commitItems = (selectedTaskForComments.comments || []).filter((c) =>
+                      Boolean(c.commitHash)
+                    );
+
+                    if (commitItems.length === 0) {
+                      return (
+                        <div className="py-8 text-center text-xs text-white/40 border border-dashed border-white/10 rounded-2xl space-y-1">
+                          <p>Nenhum commit vinculado a esta tarefa ainda.</p>
+                          <p className="text-[11px] text-white/30">
+                            Informe a hash do commit abaixo para criar o link com o repositório.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="relative pl-6 space-y-5 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-gradient-to-b before:from-emerald-500 before:via-purple-500 before:to-transparent">
+                        {commitItems.map((item, idx) => (
+                          <div key={item.id || idx} className="relative group">
+                            {/* Nó da árvore de commits */}
+                            <div className="absolute -left-6 top-1 w-5 h-5 rounded-full bg-neutral-900 border-2 border-emerald-400 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform shadow-[0_0_10px_rgba(16,185,129,0.4)]">
+                              <GitCommit size={11} />
+                            </div>
+
+                            <div className="p-3.5 bg-neutral-900/90 rounded-2xl border border-white/10 hover:border-emerald-500/40 transition-all space-y-1.5">
+                              <div className="flex items-center justify-between text-xs">
+                                <a
+                                  href={`https://github.com/triviumsolutions-tech/${projectName}/commit/${item.commitHash}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="font-mono text-xs font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded-md border border-emerald-500/20 flex items-center gap-1.5 transition-colors"
+                                  title="Ver commit no GitHub"
+                                >
+                                  <span>{item.commitHash}</span>
+                                  <ExternalLink size={10} />
+                                </a>
+
+                                <span className="text-[10px] text-white/40 font-mono">
+                                  {new Date(item.createdAt).toLocaleDateString("pt-BR", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
+                              </div>
+
+                              <p className="text-xs text-white/85 leading-relaxed">
+                                {item.text}
+                              </p>
+
+                              <div className="text-[10px] text-white/40 pt-1 border-t border-white/5 flex items-center justify-between">
+                                <span>Autor: <strong className="text-white/70">{item.author}</strong></span>
+                                <span className="font-mono text-emerald-300/70">origin/main</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Formulário Rápido para Vincular Novo Commit */}
+                <form onSubmit={handleAddComment} className="pt-3 border-t border-white/10 space-y-2.5 mt-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={newCommentAuthor}
+                      onChange={(e) => setNewCommentAuthor(e.target.value)}
+                      placeholder="Autor do Commit"
+                      className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50"
+                    />
+                    <div className="relative">
+                      <GitCommit size={13} className="absolute left-3 top-2.5 text-emerald-400" />
+                      <input
+                        type="text"
+                        value={newCommentCommit}
+                        onChange={(e) => setNewCommentCommit(e.target.value)}
+                        placeholder="Commit Hash (ex: 955916a)"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder:text-white/30 font-mono focus:outline-none focus:border-emerald-500/50"
+                      />
+                    </div>
+                  </div>
+                  <textarea
+                    value={newCommentText}
+                    onChange={(e) => setNewCommentText(e.target.value)}
+                    placeholder="Descrição das alterações e do que foi entregue neste commit..."
+                    rows={2}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50 resize-none leading-relaxed"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTaskForComments(null)}
+                      className="px-4 py-2 rounded-xl text-xs text-white/60 hover:text-white bg-white/5 hover:bg-white/10"
+                    >
+                      Fechar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingComment || !newCommentText.trim() || !newCommentCommit.trim()}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 transition-colors flex items-center gap-1.5 shadow-lg shadow-emerald-950/40"
+                    >
+                      {isSavingComment ? <Loader2 size={12} className="animate-spin" /> : <GitCommit size={12} />}
+                      <span>Vincular Commit</span>
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>,
         document.body

@@ -30,6 +30,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Idea, Project, ProjectStatus, DepartmentTag } from "@/types";
 
 interface EnrichedProject {
@@ -40,6 +41,13 @@ interface EnrichedProject {
   ideaCount: number;
   taskCount: number;
 }
+
+const STATUS_ORDER: Record<ProjectStatus, number> = {
+  Desenvolvimento: 1,
+  Pausado: 2,
+  Backlog: 3,
+  Finalizado: 4,
+};
 
 const STATUS_ICONS: Record<ProjectStatus, LucideIcon> = {
   Backlog: Clock,
@@ -66,6 +74,7 @@ const DEPARTMENTS: DepartmentTag[] = [
 ];
 
 export default function ProjetosPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<EnrichedProject[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -144,9 +153,12 @@ export default function ProjetosPage() {
           }
         });
 
-        const list = Array.from(projectMap.values()).sort(
-          (a, b) => b.ideaCount + b.taskCount - (a.ideaCount + a.taskCount)
-        );
+        const list = Array.from(projectMap.values()).sort((a, b) => {
+          const orderA = STATUS_ORDER[a.status] || 99;
+          const orderB = STATUS_ORDER[b.status] || 99;
+          if (orderA !== orderB) return orderA - orderB;
+          return (b.ideaCount + b.taskCount) - (a.ideaCount + a.taskCount);
+        });
 
         setProjects(list);
         setLoading(false);
@@ -157,6 +169,18 @@ export default function ProjetosPage() {
 
     unsubs.push(unsubProj);
     return () => unsubs.forEach((u) => u());
+  }, []);
+
+  // Atalho global ESC para fechar modais
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsNewProjectModalOpen(false);
+        setProjectToDelete(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   // Exclui projeto e desvincula ideias com segurança
@@ -412,7 +436,8 @@ export default function ProjetosPage() {
             return (
               <div
                 key={`${proj.name}-${idx}`}
-                className="glass rounded-2xl p-6 flex flex-col group relative overflow-hidden hover:-translate-y-1 transition-all duration-300 border border-white/10"
+                onClick={() => router.push(`/projetos/${encodeURIComponent(proj.name)}`)}
+                className="glass rounded-2xl p-6 flex flex-col group relative overflow-hidden hover:-translate-y-1 transition-all duration-300 border border-white/10 cursor-pointer"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
 

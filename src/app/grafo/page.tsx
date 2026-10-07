@@ -93,6 +93,19 @@ export default function TriviumGraphPage() {
     searchTermRef.current = searchTerm;
   }, [nodes, edges, selectedNode, hoveredNode, pan, zoom, filterType, searchTerm]);
 
+  // Tecla Escape para fechar o Drawer lateral e desmarcar nó ativo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (selectedNodeRef.current) {
+          setSelectedNode(null);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   // Constrói nós e arestas com conexões neurais (preservando posições existentes para evitar bouncing)
   const buildGraph = useCallback(
     (ideas: Idea[], projects: Project[], meetings: MeetingDoc[]) => {
@@ -106,18 +119,18 @@ export default function TriviumGraphPage() {
       const newNodes: GraphNode[] = [];
       const newEdges: GraphEdge[] = [];
 
-      // 1. Nó Central: Trivium Hub (Núcleo)
+      // 1. Nó Central: Trivium Brain (Núcleo)
       const existingCore = existingNodeMap.get("trivium-core");
       newNodes.push({
         id: "trivium-core",
-        label: "Trivium Hub",
+        label: "Trivium Brain",
         type: "core",
         desc: "Núcleo neural de inteligência estratégica, inovação e projetos da Trivium.",
         x: existingCore && Number.isFinite(existingCore.x) ? existingCore.x : centerX,
         y: existingCore && Number.isFinite(existingCore.y) ? existingCore.y : centerY,
         vx: 0,
         vy: 0,
-        radius: 46,
+        radius: 48,
         color: "#7e22ce",
         borderColor: "#c084fc",
         pulseColor: "#a855f7",
@@ -137,9 +150,26 @@ export default function TriviumGraphPage() {
       const projectNames = Array.from(projectSet);
       const projAngleStep = (Math.PI * 2) / Math.max(projectNames.length, 1);
 
+      // Agrupa ideias por projeto e isola ideias livres/sem projeto
+      const ideasByProject = new Map<string, Idea[]>();
+      const standaloneIdeas: Idea[] = [];
+
+      ideas.forEach((idea) => {
+        const pName = idea.project;
+        if (pName && projectSet.has(pName)) {
+          if (!ideasByProject.has(pName)) {
+            ideasByProject.set(pName, []);
+          }
+          ideasByProject.get(pName)!.push(idea);
+        } else {
+          standaloneIdeas.push(idea);
+        }
+      });
+
       projectNames.forEach((pName, idx) => {
         const angle = idx * projAngleStep;
-        const dist = 260 + (idx % 2) * 50;
+        // Distância maior para evitar sobreposição e conflito entre os projetos
+        const dist = 380 + (idx % 2) * 60;
         const pNodeId = `proj-${pName}`;
         const existingProj = projects.find((p) => p.name === pName);
         const existingNode = existingNodeMap.get(pNodeId);
@@ -156,7 +186,7 @@ export default function TriviumGraphPage() {
           y: existingNode && Number.isFinite(existingNode.y) ? existingNode.y : centerY + Math.sin(angle) * dist,
           vx: existingNode && Number.isFinite(existingNode.vx) ? existingNode.vx * 0.05 : 0,
           vy: existingNode && Number.isFinite(existingNode.vy) ? existingNode.vy * 0.05 : 0,
-          radius: 32,
+          radius: 34,
           color:
             existingProj?.status === "Desenvolvimento"
               ? "#0284c7"
@@ -167,62 +197,100 @@ export default function TriviumGraphPage() {
           pulseColor: "#00f5ff",
         });
 
-        // Fio cibernético interligando Projeto ao Trivium Hub
+        // Fio cibernético interligando Projeto ao Trivium Brain
         newEdges.push({
           source: "trivium-core",
           target: pNodeId,
           color: "rgba(56, 189, 248, 0.45)",
           pulseColor: "#38bdf8",
         });
+
+        // 3. Ideias do projeto agrupadas em UMA bola satélite (Cluster de Ideias)
+        const projIdeas = ideasByProject.get(pName);
+        if (projIdeas && projIdeas.length > 0) {
+          const clusterNodeId = `ideas-proj-${pName}`;
+          const existingCluster = existingNodeMap.get(clusterNodeId);
+          const clusterAngle = angle + 0.35;
+          const clusterDist = 160;
+
+          newNodes.push({
+            id: clusterNodeId,
+            label: `Ideias (${projIdeas.length})`,
+            type: "idea",
+            status: `${projIdeas.length} ideias`,
+            department: existingProj?.department || "Inovação",
+            desc: `Cluster com ${projIdeas.length} ideias registradas para o projeto ${pName}.`,
+            raw: {
+              isCluster: true,
+              projectName: pName,
+              ideas: projIdeas,
+            },
+            x: existingCluster && Number.isFinite(existingCluster.x)
+              ? existingCluster.x
+              : (centerX + Math.cos(angle) * dist) + Math.cos(clusterAngle) * clusterDist,
+            y: existingCluster && Number.isFinite(existingCluster.y)
+              ? existingCluster.y
+              : (centerY + Math.sin(angle) * dist) + Math.sin(clusterAngle) * clusterDist,
+            vx: existingCluster && Number.isFinite(existingCluster.vx) ? existingCluster.vx * 0.05 : 0,
+            vy: existingCluster && Number.isFinite(existingCluster.vy) ? existingCluster.vy * 0.05 : 0,
+            radius: 24,
+            color: "#9333ea",
+            borderColor: "#c084fc",
+            pulseColor: "#e879f9",
+          });
+
+          // Fio conectando a bola de Ideias exclusivamente ao seu Projeto
+          newEdges.push({
+            source: pNodeId,
+            target: clusterNodeId,
+            color: "rgba(168, 85, 247, 0.4)",
+            pulseColor: "#e879f9",
+          });
+        }
       });
 
-      // 3. Ideias conectadas aos seus respectivos Projetos (ou ao Hub se forem gerais)
-      ideas.forEach((idea, idx) => {
-        const parentProjName = idea.project;
-        const targetProjId =
-          parentProjName && projectSet.has(parentProjName)
-            ? `proj-${parentProjName}`
-            : "trivium-core";
-
-        const angle = (idx * 0.75) % (Math.PI * 2);
-        const dist = 390 + (idx % 3) * 60;
-        const ideaNodeId = `idea-${idea.id || idx}`;
-        const existingNode = existingNodeMap.get(ideaNodeId);
+      // 4. Ideias livres (sem projeto associado) em uma bola única satélite do Trivium Brain
+      if (standaloneIdeas.length > 0) {
+        const standaloneId = "ideas-standalone";
+        const existingStandalone = existingNodeMap.get(standaloneId);
+        const saAngle = -Math.PI / 2; // Acima do Trivium Brain
+        const saDist = 300;
 
         newNodes.push({
-          id: ideaNodeId,
-          label: idea.title || `Ideia #${idx + 1}`,
+          id: standaloneId,
+          label: `Ideias Livres (${standaloneIdeas.length})`,
           type: "idea",
-          status: idea.status || "Rascunho",
-          department: idea.department,
-          desc: idea.desc,
-          painPoint: idea.painPoint,
-          raw: idea,
-          x: existingNode && Number.isFinite(existingNode.x) ? existingNode.x : centerX + Math.cos(angle) * dist,
-          y: existingNode && Number.isFinite(existingNode.y) ? existingNode.y : centerY + Math.sin(angle) * dist,
-          vx: existingNode && Number.isFinite(existingNode.vx) ? existingNode.vx * 0.05 : 0,
-          vy: existingNode && Number.isFinite(existingNode.vy) ? existingNode.vy * 0.05 : 0,
-          radius: 20,
-          color:
-            idea.status === "Aprovada"
-              ? "#059669"
-              : idea.status === "Sugestão da IA"
-              ? "#d97706"
-              : "#9333ea",
-          borderColor: "#e9d5ff",
-          pulseColor: "#c084fc",
+          status: `${standaloneIdeas.length} livres`,
+          department: "Geral",
+          desc: `Ideias avulsas ainda não vinculadas a nenhum projeto.`,
+          raw: {
+            isCluster: true,
+            projectName: "Ideias Livres",
+            ideas: standaloneIdeas,
+          },
+          x: existingStandalone && Number.isFinite(existingStandalone.x)
+            ? existingStandalone.x
+            : centerX + Math.cos(saAngle) * saDist,
+          y: existingStandalone && Number.isFinite(existingStandalone.y)
+            ? existingStandalone.y
+            : centerY + Math.sin(saAngle) * saDist,
+          vx: existingStandalone && Number.isFinite(existingStandalone.vx) ? existingStandalone.vx * 0.05 : 0,
+          vy: existingStandalone && Number.isFinite(existingStandalone.vy) ? existingStandalone.vy * 0.05 : 0,
+          radius: 26,
+          color: "#7c3aed",
+          borderColor: "#a78bfa",
+          pulseColor: "#c4b5fd",
         });
 
-        // Fio interligando Ideia ao Projeto
         newEdges.push({
-          source: targetProjId,
-          target: ideaNodeId,
-          color: "rgba(168, 85, 247, 0.35)",
-          pulseColor: "#e879f9",
+          source: "trivium-core",
+          target: standaloneId,
+          color: "rgba(167, 139, 250, 0.45)",
+          pulseColor: "#c4b5fd",
         });
-      });
+      }
 
-      // 4. Reuniões / Atas conectadas a projetos
+      // 5. Reuniões / Atas conectadas aos respectivos Projetos
       meetings.forEach((meet, idx) => {
         const targetProjId =
           meet.relatedProject && projectSet.has(meet.relatedProject)
@@ -230,7 +298,7 @@ export default function TriviumGraphPage() {
             : "trivium-core";
 
         const angle = (idx * 1.4) % (Math.PI * 2);
-        const dist = 430 + (idx % 2) * 50;
+        const dist = 450 + (idx % 2) * 50;
         const meetNodeId = `meet-${meet.id || idx}`;
         const existingNode = existingNodeMap.get(meetNodeId);
 
@@ -334,10 +402,11 @@ export default function TriviumGraphPage() {
         const dx = bx - ax;
         const dy = by - ay;
         const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-        const minDist = (a.radius || 20) + (b.radius || 20) + 60;
+        // Espaçamento generoso entre nós para evitar aglomeração e conflito visual
+        const minDist = (a.radius || 20) + (b.radius || 20) + 130;
 
         if (dist < minDist) {
-          const force = Math.min(2, Math.max(0, ((minDist - dist) / dist) * 0.08));
+          const force = Math.min(2.5, Math.max(0, ((minDist - dist) / dist) * 0.1));
           if (a.id !== "trivium-core" && a !== isDraggingNodeRef.current) {
             a.vx = (a.vx || 0) - dx * force;
             a.vy = (a.vy || 0) - dy * force;
@@ -367,7 +436,8 @@ export default function TriviumGraphPage() {
       const dx = tx - sx;
       const dy = ty - sy;
       const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-      const targetDist = src.id === "trivium-core" ? 240 : 140;
+      // Distância de descanso: 380px para o núcleo central, 170px para satélites de projeto
+      const targetDist = src.id === "trivium-core" ? 380 : 170;
       const force = Math.max(-2, Math.min(2, (dist - targetDist) * 0.003));
 
       if (src.id !== "trivium-core" && src !== isDraggingNodeRef.current) {
@@ -400,8 +470,8 @@ export default function TriviumGraphPage() {
       if (node.id === "trivium-core" || node === isDraggingNodeRef.current) return;
       node.x += node.vx;
       node.y += node.vy;
-      node.vx *= 0.80;
-      node.vy *= 0.80;
+      node.vx *= 0.78;
+      node.vy *= 0.78;
       if (Math.abs(node.vx) < 0.015) node.vx = 0;
       if (Math.abs(node.vy) < 0.015) node.vy = 0;
     });
@@ -956,7 +1026,7 @@ export default function TriviumGraphPage() {
 
   // Contagens para HUD
   const countProjects = useMemo(() => nodes.filter((n) => n.type === "project").length, [nodes]);
-  const countIdeas = useMemo(() => nodes.filter((n) => n.type === "idea").length, [nodes]);
+  const countIdeas = useMemo(() => allIdeas.length, [allIdeas]);
   const countMeetings = useMemo(() => nodes.filter((n) => n.type === "meeting").length, [nodes]);
 
   // Dados correlacionados para o Drawer Lateral
@@ -984,13 +1054,30 @@ export default function TriviumGraphPage() {
     }
 
     if (selectedNode.type === "idea") {
-      const ideaRaw = selectedNode.raw as Idea | undefined;
+      const clusterRaw = selectedNode.raw as
+        | { isCluster?: boolean; projectName?: string; ideas?: Idea[] }
+        | Idea
+        | undefined;
+
+      if (clusterRaw && "isCluster" in clusterRaw && clusterRaw.isCluster) {
+        const parentProjNode = nodes.find(
+          (n) => n.type === "project" && n.label === clusterRaw.projectName
+        );
+        return {
+          isCluster: true,
+          projectName: clusterRaw.projectName,
+          ideas: clusterRaw.ideas || [],
+          parentProject: parentProjNode || null,
+        };
+      }
+
+      const singleIdea = clusterRaw as Idea | undefined;
       const parentProjNode = nodes.find(
-        (n) => n.type === "project" && n.label === ideaRaw?.project
+        (n) => n.type === "project" && n.label === singleIdea?.project
       );
       return {
         parentProject: parentProjNode || null,
-        parentProjectName: ideaRaw?.project || "Caixa de Entrada Geral",
+        parentProjectName: singleIdea?.project || "Caixa de Entrada Geral",
       };
     }
 
@@ -1023,7 +1110,7 @@ export default function TriviumGraphPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-extrabold text-sm tracking-tight text-white flex items-center gap-1.5">
-                Brain
+                Trivium Brain
               </h1>
               <span className="flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -1117,7 +1204,7 @@ export default function TriviumGraphPage() {
         <button
           onClick={resetView}
           className="p-1.5 sm:p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1.5 text-xs font-semibold"
-          title="Centralizar Câmera no Trivium Hub"
+          title="Centralizar Câmera no Trivium Brain"
         >
           <Compass size={15} className="text-purple-400" />
           <span className="hidden xs:inline">Centralizar</span>
@@ -1131,6 +1218,8 @@ export default function TriviumGraphPage() {
         <span>Scroll / Pinça para zoom</span>
         <span>•</span>
         <span>Toque nos nós para inspecionar</span>
+        <span>•</span>
+        <span>ESC para fechar</span>
       </div>
 
       {/* Canvas Principal */}
@@ -1166,13 +1255,16 @@ export default function TriviumGraphPage() {
                 : selectedNode.type === "project"
                 ? "Projeto Trivium"
                 : selectedNode.type === "idea"
-                ? "Ideia / Feature"
+                ? drawerConnectedData?.isCluster
+                  ? "Ideias do Projeto"
+                  : "Ideia / Feature"
                 : "Ata de Reunião"}
             </span>
 
             <button
               onClick={() => setSelectedNode(null)}
               className="text-white/50 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors"
+              title="Fechar (Esc)"
             >
               <X size={18} />
             </button>
@@ -1279,47 +1371,28 @@ export default function TriviumGraphPage() {
                   </div>
                 )}
 
-                {/* Ideias Conectadas a este Projeto */}
+                {/* Ideias Conectadas a este Projeto - Apenas Títulos */}
                 <div>
                   <h4 className="text-xs font-bold uppercase tracking-wider text-purple-300 mb-2 flex items-center gap-1.5">
-                    <Lightbulb size={13} /> Ideias Conectadas ({drawerConnectedData.ideas?.length || 0})
+                    <Lightbulb size={13} /> Ideias do Projeto ({drawerConnectedData.ideas?.length || 0})
                   </h4>
                   {(!drawerConnectedData.ideas || drawerConnectedData.ideas.length === 0) ? (
                     <p className="text-white/40 text-xs italic bg-white/5 p-3 rounded-xl border border-white/5">
-                      Nenhuma ideia vinculada diretamente a este projeto ainda. Crie ideias apontando para ele na Home!
+                      Nenhuma ideia vinculada diretamente a este projeto ainda.
                     </p>
                   ) : (
-                    <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
-                      {drawerConnectedData.ideas.map((idea) => {
-                        const ideaNode = nodes.find(
-                          (n) => n.id === `idea-${idea.id}` || n.label === idea.title
-                        );
-
-                        return (
-                          <div
-                            key={idea.id || idea.title}
-                            className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between hover:border-purple-500/40 transition-colors"
-                          >
-                            <div className="min-w-0 flex-1 pr-2">
-                              <span className="font-semibold text-white block text-xs truncate">
-                                {idea.title}
-                              </span>
-                              <span className="text-[10px] text-purple-400 font-mono">
-                                {idea.status || "Rascunho"}
-                              </span>
-                            </div>
-                            {ideaNode && (
-                              <button
-                                type="button"
-                                onClick={() => flyToNode(ideaNode)}
-                                className="text-[10px] font-semibold text-purple-400 hover:text-purple-300 px-2 py-1 rounded bg-purple-500/10 shrink-0"
-                              >
-                                Focar nó
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {drawerConnectedData.ideas.map((idea, idx) => (
+                        <div
+                          key={idea.id || idx}
+                          className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-center gap-2"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0 shadow-[0_0_8px_#c084fc]" />
+                          <span className="font-medium text-white text-xs truncate">
+                            {idea.title}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1352,52 +1425,83 @@ export default function TriviumGraphPage() {
               </div>
             )}
 
-            {/* 3. CASO SEJA UMA IDEIA */}
+            {/* 3. CASO SEJA UMA IDEIA OU BOLA CLUSTER DE IDEIAS */}
             {selectedNode.type === "idea" && (
               <div className="space-y-4">
-                {/* Projeto Pai Vinculado */}
-                {drawerConnectedData?.parentProjectName && (
-                  <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] text-blue-300 uppercase font-mono block">
-                        Projeto Vinculado
-                      </span>
-                      <span className="text-xs font-bold text-white">
-                        {drawerConnectedData.parentProjectName}
-                      </span>
+                {drawerConnectedData?.isCluster ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between pb-1 border-b border-white/10">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+                        <Lightbulb size={13} /> Lista de Ideias ({drawerConnectedData.ideas?.length || 0})
+                      </h4>
+                      <span className="text-[10px] text-white/40 font-mono">Apenas Títulos</span>
                     </div>
-                    {drawerConnectedData.parentProject && (
-                      <button
-                        type="button"
-                        onClick={() => flyToNode(drawerConnectedData.parentProject!)}
-                        className="px-2.5 py-1 bg-blue-600/30 hover:bg-blue-600/40 text-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1"
-                      >
-                        Ver Projeto <ArrowRight size={11} />
-                      </button>
+
+                    <div className="space-y-1.5 max-h-[55vh] overflow-y-auto pr-1">
+                      {drawerConnectedData.ideas && drawerConnectedData.ideas.length > 0 ? (
+                        drawerConnectedData.ideas.map((idea, idx) => (
+                          <div
+                            key={idea.id || idx}
+                            className="p-2.5 rounded-xl bg-white/5 border border-white/5 hover:border-purple-500/30 transition-colors flex items-center gap-2.5"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0 shadow-[0_0_8px_#c084fc]" />
+                            <span className="font-medium text-white text-xs leading-snug">
+                              {idea.title}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-white/40 text-xs italic">Nenhuma ideia encontrada.</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Projeto Pai Vinculado */}
+                    {drawerConnectedData?.parentProjectName && (
+                      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] text-blue-300 uppercase font-mono block">
+                            Projeto Vinculado
+                          </span>
+                          <span className="text-xs font-bold text-white">
+                            {drawerConnectedData.parentProjectName}
+                          </span>
+                        </div>
+                        {drawerConnectedData.parentProject && (
+                          <button
+                            type="button"
+                            onClick={() => flyToNode(drawerConnectedData.parentProject!)}
+                            className="px-2.5 py-1 bg-blue-600/30 hover:bg-blue-600/40 text-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1"
+                          >
+                            Ver Projeto <ArrowRight size={11} />
+                          </button>
+                        )}
+                      </div>
                     )}
-                  </div>
-                )}
 
-                {selectedNode.painPoint && (
-                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-2xl">
-                    <h4 className="text-xs font-bold uppercase text-red-300 mb-1">
-                      Dor do Cliente
-                    </h4>
-                    <p className="text-xs leading-relaxed text-red-100/90">
-                      {selectedNode.painPoint}
-                    </p>
-                  </div>
-                )}
+                    {selectedNode.painPoint && (
+                      <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                        <h4 className="text-xs font-bold uppercase text-red-300 mb-1">
+                          Dor do Cliente
+                        </h4>
+                        <p className="text-xs leading-relaxed text-red-100/90">
+                          {selectedNode.painPoint}
+                        </p>
+                      </div>
+                    )}
 
-                {selectedNode.desc && (
-                  <div>
-                    <h4 className="text-xs font-bold uppercase text-white/50 mb-1">
-                      Descrição & Contexto
-                    </h4>
-                    <p className="text-xs leading-relaxed whitespace-pre-wrap bg-white/5 p-3 rounded-2xl border border-white/5">
-                      {selectedNode.desc}
-                    </p>
-                  </div>
+                    {selectedNode.desc && (
+                      <div>
+                        <h4 className="text-xs font-bold uppercase text-white/50 mb-1">
+                          Descrição & Contexto
+                        </h4>
+                        <p className="text-xs leading-relaxed whitespace-pre-wrap bg-white/5 p-3 rounded-2xl border border-white/5">
+                          {selectedNode.desc}
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -1469,6 +1573,18 @@ export default function TriviumGraphPage() {
                 Abrir Painel & Kanban do Projeto <ExternalLink size={14} />
               </Link>
             )}
+
+            {selectedNode.type === "idea" &&
+              drawerConnectedData?.isCluster &&
+              drawerConnectedData.projectName &&
+              drawerConnectedData.projectName !== "Ideias Livres" && (
+                <Link
+                  href={`/projetos/${encodeURIComponent(drawerConnectedData.projectName)}`}
+                  className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-lg"
+                >
+                  Abrir Painel & Kanban do Projeto <ExternalLink size={14} />
+                </Link>
+              )}
 
             <button
               type="button"

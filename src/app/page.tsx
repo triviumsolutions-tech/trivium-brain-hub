@@ -89,6 +89,13 @@ export default function Home() {
   // Atalho global "Q" para Quick Add
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedIdea(null);
+        setIsQuickAddOpen(false);
+        setIsNewIdeaModalOpen(false);
+        setIsScheduleModalOpen(false);
+        return;
+      }
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
@@ -314,13 +321,30 @@ export default function Home() {
     }
   };
 
+  // Regra: No Hub principal, apenas ideias que NÃO pertencem a um projeto ativo,
+  // ou ideias que pertencem a um projeto mas ainda estão pendentes de aprovação/refinamento
+  const isHubIdea = (idea: Idea) => {
+    const rawProj = (idea.project || "").trim();
+    const hasNoProject =
+      !rawProj ||
+      rawProj.toLowerCase() === "caixa de entrada" ||
+      rawProj.toLowerCase() === "geral" ||
+      rawProj.toLowerCase() === "brainstorm";
+
+    if (hasNoProject) return true;
+    // Se está em um projeto, só exibe no Hub se ainda não estiver aprovada
+    return idea.status !== "Aprovada";
+  };
+
+  const hubIdeas = ideas.filter(isHubIdea);
+
   // Contadores das abas
-  const quarantinedCount = ideas.filter((i) => i.isQuarantined).length;
-  const inboxCount = ideas.filter((i) => i.inbox || i.status === "Rascunho").length;
-  const approvedCount = ideas.filter((i) => i.status === "Aprovada").length;
+  const quarantinedCount = hubIdeas.filter((i) => i.isQuarantined).length;
+  const inboxCount = hubIdeas.filter((i) => i.inbox || i.status === "Rascunho").length;
+  const approvedCount = hubIdeas.filter((i) => i.status === "Aprovada").length;
 
   // Filtragem conforme a aba selecionada e busca
-  const filteredIdeas = ideas.filter((idea) => {
+  const filteredIdeas = hubIdeas.filter((idea) => {
     const matchesSearch =
       idea.title?.toLowerCase().includes(search.toLowerCase()) ||
       idea.project?.toLowerCase().includes(search.toLowerCase()) ||
