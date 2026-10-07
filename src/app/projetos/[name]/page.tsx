@@ -299,6 +299,9 @@ export default function ProjetoDetalhePage({
         }),
       });
       const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Erro ao conectar com o Jira.");
+      }
       if (data.key) {
         const updatedTasks = tasks.map((t) =>
           t.id === task.id ? { ...t, jiraKey: data.key, jiraUrl: data.url } : t
@@ -309,7 +312,7 @@ export default function ProjetoDetalhePage({
       }
     } catch (err) {
       console.error(err);
-      alert("Erro ao conectar com o Jira.");
+      alert((err as Error).message || "Erro ao conectar com o Jira.");
     } finally {
       setSyncingJiraId(null);
     }

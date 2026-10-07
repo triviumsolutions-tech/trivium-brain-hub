@@ -80,18 +80,13 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Modo de Conexão Rápida (quando o token ainda não foi preenchido no .env)
-      // Gera a referência canônica do projeto KAN
-      const randomIssueNum = Math.floor(Math.random() * 80) + 20;
-      const simulatedKey = `${projectKey}-${randomIssueNum}`;
-      return NextResponse.json({
-        success: true,
-        key: simulatedKey,
-        url: `https://${domain}/browse/${simulatedKey}`,
-        boardUrl: DEFAULT_BOARD_URL,
-        simulated: true,
-        note: `Tarefa mapeada para o Jira Board KAN. Configure JIRA_API_TOKEN para envio direto via webhook da Atlassian.`,
-      });
+      return NextResponse.json(
+        {
+          error:
+            "JIRA_API_TOKEN ou JIRA_EMAIL não configurados. Adicione JIRA_EMAIL e JIRA_API_TOKEN no arquivo .env.local para criar tickets reais na Atlassian.",
+        },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({ error: "Ação não suportada." }, { status: 400 });
