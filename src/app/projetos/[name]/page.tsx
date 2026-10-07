@@ -40,12 +40,14 @@ import {
   Check,
   Calendar,
   ExternalLink,
+  MessageSquare,
+  GitCommit,
 } from "lucide-react";
 import Link from "next/link";
 import { Whiteboard } from "@/components/Whiteboard";
 import { NewIdeaModal } from "@/components/NewIdeaModal";
 import { ScheduleMeetingModal } from "@/components/ScheduleMeetingModal";
-import { Idea, Project, ProjectStatus, KanbanTask } from "@/types";
+import { Idea, Project, ProjectStatus, KanbanTask, TaskComment } from "@/types";
 
 const PROJECT_STATUSES: { label: ProjectStatus; color: string; icon: LucideIcon }[] = [
   { label: "Backlog", color: "bg-blue-500/20 text-blue-300 border-blue-500/30", icon: Clock },
@@ -87,6 +89,11 @@ export default function ProjetoDetalhePage({
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [syncingJiraId, setSyncingJiraId] = useState<string | null>(null);
+  const [selectedTaskForComments, setSelectedTaskForComments] = useState<KanbanTask | null>(null);
+  const [newCommentText, setNewCommentText] = useState("");
+  const [newCommentCommit, setNewCommentCommit] = useState("");
+  const [newCommentAuthor, setNewCommentAuthor] = useState("Sócio Trivium");
+  const [isSavingComment, setIsSavingComment] = useState(false);
 
   // Estados de Exclusão do Projeto
   const router = useRouter();
@@ -234,6 +241,7 @@ export default function ProjetoDetalhePage({
     await setDoc(doc(db, "projects", projectName), { tasks: updated }, { merge: true });
   };
 
+
   // Extração Tática via IA do Whiteboard ➔ Kanban
   const handleAnalyzeWhiteboard = async () => {
     if (!projectDrawing) {
@@ -315,6 +323,43 @@ export default function ProjetoDetalhePage({
       alert((err as Error).message || "Erro ao conectar com o Jira.");
     } finally {
       setSyncingJiraId(null);
+    }
+  };
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTaskForComments || !newCommentText.trim()) return;
+    setIsSavingComment(true);
+    try {
+      const newComment = {
+        id: `${Date.now()}-${Math.random()}`,
+        author: newCommentAuthor.trim() || "Sócio Trivium",
+        text: newCommentText.trim(),
+        commitHash: newCommentCommit.trim() || undefined,
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatedTasks = tasks.map((t) => {
+        if (t.id === selectedTaskForComments.id) {
+          const comments = t.comments ? [...t.comments, newComment] : [newComment];
+          return { ...t, comments };
+        }
+        return t;
+      });
+
+      setTasks(updatedTasks);
+      await setDoc(doc(db, "projects", projectName), { tasks: updatedTasks }, { merge: true });
+      setSelectedTaskForComments((prev) =>
+        prev ? { ...prev, comments: prev.comments ? [...prev.comments, newComment] : [newComment] } : null
+      );
+      setNewCommentText("");
+      setNewCommentCommit("");
+      await logAuditEvent("TASK_COMMENT_ADDED", selectedTaskForComments.title, newComment.text.slice(0, 40));
+    } catch (err) {
+      console.error("Erro ao adicionar comentário:", err);
+      alert("Não foi possível salvar o comentário.");
+    } finally {
+      setIsSavingComment(false);
     }
   };
 
@@ -696,9 +741,16 @@ export default function ProjetoDetalhePage({
                           className="p-3.5 bg-neutral-900/80 rounded-xl border border-white/10 hover:border-purple-500/40 transition-colors shadow group"
                         >
                           <div className="flex justify-between items-start gap-2 mb-2">
-                            <h4 className="text-xs font-semibold text-white leading-tight">
-                              {task.title}
-                            </h4>
+                            <div className="flex flex-col gap-1">
+                              {task.code && (
+                                <span className="font-mono text-[10px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20 w-fit">
+                                  {task.code}
+                                </span>
+                              )}
+                              <h4 className="text-xs font-semibold text-white leading-tight">
+                                {task.title}
+                              </h4>
+                            </div>
                             <button
                               onClick={() => handleDeleteTask(task.id)}
                               className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 transition-opacity p-1"
@@ -713,36 +765,56 @@ export default function ProjetoDetalhePage({
                               {task.description}
                             </p>
                           )}
-                          {/* Badge / Ação Jira KAN */}
+                          {/* Badge / Ação Jira KAN + Botão de Comentários */}
                           <div className="flex items-center justify-between gap-2 mb-2.5">
-                            {task.jiraKey ? (
-                              <a
-                                href={task.jiraUrl || `https://triviumsolutions.atlassian.net/browse/${task.jiraKey}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-mono font-bold hover:bg-blue-500/30 transition-colors"
-                                title="Abrir ticket no Jira KAN"
-                              >
-                                <span>{task.jiraKey}</span>
-                                <ExternalLink size={10} />
-                              </a>
-                            ) : (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {task.jiraKey ? (
+                                <a
+                                  href={task.jiraUrl || `https://triviumsolutions.atlassian.net/browse/${task.jiraKey}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-mono font-bold hover:bg-blue-500/30 transition-colors"
+                                  title="Abrir ticket no Jira KAN"
+                                >
+                                  <span>{task.jiraKey}</span>
+                                  <ExternalLink size={10} />
+                                </a>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSendToJira(task)}
+                                  disabled={syncingJiraId === task.id}
+                                  className="inline-flex items-center gap-1 text-[10px] text-blue-400/80 hover:text-blue-300 transition-colors font-medium bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20"
+                                  title="Vincular e enviar para o Jira KAN"
+                                >
+                                  {syncingJiraId === task.id ? (
+                                    <Loader2 size={10} className="animate-spin text-blue-400" />
+                                  ) : (
+                                    <>
+                                      <span>+ Jira KAN</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
+
+                              {/* Botão de Comentários & Commits */}
                               <button
                                 type="button"
-                                onClick={() => handleSendToJira(task)}
-                                disabled={syncingJiraId === task.id}
-                                className="inline-flex items-center gap-1 text-[10px] text-blue-400/80 hover:text-blue-300 transition-colors font-medium bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20"
-                                title="Vincular e enviar para o Jira KAN"
+                                onClick={() => setSelectedTaskForComments(task)}
+                                className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                                  task.comments && task.comments.length > 0
+                                    ? "bg-purple-500/20 text-purple-300 border-purple-500/30 font-semibold"
+                                    : "bg-white/5 text-white/50 border-white/10 hover:text-white hover:bg-white/10"
+                                }`}
+                                title="Abrir comentários e commits da tarefa"
                               >
-                                {syncingJiraId === task.id ? (
-                                  <Loader2 size={10} className="animate-spin text-blue-400" />
-                                ) : (
-                                  <>
-                                    <span>+ Jira KAN</span>
-                                  </>
+                                <MessageSquare size={10} />
+                                <span>{task.comments?.length || 0}</span>
+                                {task.comments?.some((c) => c.commitHash) && (
+                                  <GitCommit size={10} className="text-emerald-400 ml-0.5" />
                                 )}
                               </button>
-                            )}
+                            </div>
                           </div>
 
                           {/* Botões para Mover Tarefa entre Colunas */}
@@ -854,6 +926,119 @@ export default function ProjetoDetalhePage({
                 </div>
               )}
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal de Comentários e Histórico da Tarefa */}
+      {selectedTaskForComments && mounted && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
+          <div className="glass w-full max-w-2xl rounded-3xl p-6 md:p-8 relative border border-white/15 shadow-2xl flex flex-col max-h-[85vh]">
+            <button
+              onClick={() => setSelectedTaskForComments(null)}
+              className="absolute top-6 right-6 text-white/50 hover:text-white p-2 rounded-full hover:bg-white/10"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-2 mb-2">
+              {selectedTaskForComments.code && (
+                <span className="font-mono text-xs font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                  {selectedTaskForComments.code}
+                </span>
+              )}
+              <span className="text-xs text-white/50">{selectedTaskForComments.status}</span>
+            </div>
+
+            <h2 className="text-xl font-bold mb-3 text-white pr-8">
+              {selectedTaskForComments.title}
+            </h2>
+
+            {selectedTaskForComments.description && (
+              <p className="text-xs text-white/70 mb-3 bg-white/5 p-3 rounded-xl border border-white/10 leading-relaxed">
+                {selectedTaskForComments.description}
+              </p>
+            )}
+
+            {/* Lista de Comentários */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 my-2">
+              {(!selectedTaskForComments.comments || selectedTaskForComments.comments.length === 0) ? (
+                <div className="py-8 text-center text-xs text-white/40 border border-dashed border-white/10 rounded-2xl">
+                  Nenhum comentário ou commit registrado nesta tarefa ainda.
+                </div>
+              ) : (
+                selectedTaskForComments.comments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    className="p-3.5 bg-neutral-900/90 rounded-2xl border border-white/10 text-xs space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between text-[11px] text-white/50">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-white/90">{comment.author}</span>
+                        {comment.commitHash && (
+                          <span className="inline-flex items-center gap-1 font-mono text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                            <GitCommit size={10} />
+                            {comment.commitHash}
+                          </span>
+                        )}
+                      </div>
+                      <span>{new Date(comment.createdAt).toLocaleString("pt-BR")}</span>
+                    </div>
+                    <p className="text-white/80 whitespace-pre-wrap leading-relaxed">
+                      {comment.text}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Formulário Novo Comentário */}
+            <form onSubmit={handleAddComment} className="pt-4 border-t border-white/10 space-y-3 mt-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  value={newCommentAuthor}
+                  onChange={(e) => setNewCommentAuthor(e.target.value)}
+                  placeholder="Seu nome / autor"
+                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50"
+                />
+                <div className="relative">
+                  <GitCommit size={13} className="absolute left-3 top-2.5 text-white/30" />
+                  <input
+                    type="text"
+                    value={newCommentCommit}
+                    onChange={(e) => setNewCommentCommit(e.target.value)}
+                    placeholder="Commit Hash (ex: d302248) ou Branch"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder:text-white/30 font-mono focus:outline-none focus:border-purple-500/50"
+                  />
+                </div>
+              </div>
+              <textarea
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+                placeholder="Escreva detalhes técnicos, decisões de código ou notas de implementação..."
+                rows={3}
+                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50 resize-none leading-relaxed"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTaskForComments(null)}
+                  className="px-4 py-2 rounded-xl text-xs text-white/60 hover:text-white bg-white/5 hover:bg-white/10"
+                >
+                  Fechar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingComment || !newCommentText.trim()}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-purple-600 hover:bg-purple-500 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                >
+                  {isSavingComment ? <Loader2 size={12} className="animate-spin" /> : <MessageSquare size={12} />}
+                  <span>Publicar Comentário</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body

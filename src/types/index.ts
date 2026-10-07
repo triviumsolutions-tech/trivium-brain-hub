@@ -45,8 +45,17 @@ export interface Idea {
   promotedToProject?: string;
 }
 
+export interface TaskComment {
+  id: string;
+  author: string;
+  text: string;
+  createdAt: string;
+  commitHash?: string;
+}
+
 export interface KanbanTask {
   id: string;
+  code?: string;
   title: string;
   description?: string;
   status: ProjectStatus;
@@ -55,6 +64,7 @@ export interface KanbanTask {
   createdAt?: string;
   jiraKey?: string;
   jiraUrl?: string;
+  comments?: TaskComment[];
 }
 
 export interface Project {
