@@ -435,19 +435,19 @@ export default function Home() {
 
         {/* Barra de Filtros / Abas do Funil */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div className="flex items-center gap-1.5 p-1 bg-white/5 border border-white/10 rounded-2xl text-xs">
+          <div className="flex items-center gap-1.5 p-1 bg-white/5 border border-white/10 rounded-2xl text-xs overflow-x-auto no-scrollbar scroll-smooth w-full sm:w-auto shrink-0">
             <button
               onClick={() => setActiveTab("all")}
-              className={`px-3.5 py-2 rounded-xl font-medium transition-all ${
+              className={`px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap ${
                 activeTab === "all" ? "bg-white/15 text-white shadow" : "text-white/50 hover:text-white"
               }`}
             >
-              Todas ({ideas.length})
+              Todas ({hubIdeas.length})
             </button>
 
             <button
               onClick={() => setActiveTab("quarantine")}
-              className={`px-3.5 py-2 rounded-xl font-medium transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === "quarantine"
                   ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow"
                   : "text-white/50 hover:text-white"
@@ -464,7 +464,7 @@ export default function Home() {
 
             <button
               onClick={() => setActiveTab("inbox")}
-              className={`px-3.5 py-2 rounded-xl font-medium transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === "inbox" ? "bg-white/15 text-white shadow" : "text-white/50 hover:text-white"
               }`}
             >
@@ -475,7 +475,7 @@ export default function Home() {
 
             <button
               onClick={() => setActiveTab("approved")}
-              className={`px-3.5 py-2 rounded-xl font-medium transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === "approved"
                   ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow"
                   : "text-white/50 hover:text-white"
@@ -487,8 +487,8 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="relative glass rounded-2xl px-4 py-2 flex items-center gap-2 w-full sm:w-72">
-            <Search size={16} className="text-white/40" />
+          <div className="relative glass rounded-2xl px-4 py-2 flex items-center gap-2 w-full sm:w-72 border border-white/10">
+            <Search size={16} className="text-white/40 shrink-0" />
             <input
               type="text"
               placeholder="Buscar ideias ou projetos..."
@@ -496,6 +496,16 @@ export default function Home() {
               onChange={(e) => setSearch(e.target.value)}
               className="bg-transparent text-xs text-white placeholder:text-white/30 outline-none w-full"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="p-1 text-white/40 hover:text-white rounded-full transition-colors"
+                title="Limpar busca"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
         </div>
 

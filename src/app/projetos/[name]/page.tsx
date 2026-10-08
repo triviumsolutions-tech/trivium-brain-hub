@@ -95,6 +95,7 @@ export default function ProjetoDetalhePage({
   const [newCommentAuthor, setNewCommentAuthor] = useState("Sócio Trivium");
   const [isSavingComment, setIsSavingComment] = useState(false);
   const [taskModalTab, setTaskModalTab] = useState<"comments" | "commits">("comments");
+  const [mobileColumnFilter, setMobileColumnFilter] = useState<"all" | ProjectStatus>("all");
 
   // Estados de Exclusão do Projeto
   const router = useRouter();
@@ -502,9 +503,9 @@ export default function ProjetoDetalhePage({
 
         <Link
           href="/projetos"
-          className="inline-flex items-center gap-2 text-white/50 hover:text-white transition-colors mb-6 text-xs font-medium w-fit"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors mb-6 text-xs font-semibold w-fit"
         >
-          <ArrowLeft size={14} /> Voltar para Todos os Projetos
+          <ArrowLeft size={14} /> Voltar para Projetos
         </Link>
 
         {/* Top Header do Projeto com Máquina de Estados */}
@@ -718,20 +719,77 @@ export default function ProjetoDetalhePage({
         {/* MODO 1: QUADRO KANBAN OFICIAL */}
         {viewMode === "kanban" && (
           <div className="flex flex-col flex-1">
-            <div className="md:hidden flex items-center justify-between text-[11px] text-white/40 mb-2 px-1">
-              <span>👉 Deslize para ver todas as colunas</span>
-              <span className="font-mono text-purple-400">4 colunas</span>
+            {/* Seletor Mobile de Colunas com Chips e Contadores */}
+            <div className="md:hidden flex flex-col gap-2 mb-4">
+              <div className="flex items-center justify-between text-[11px] text-white/50 px-1">
+                <span>Visualização no Celular:</span>
+                <span className="font-mono text-purple-300 font-semibold">
+                  {mobileColumnFilter === "all" ? "Carrossel (Deslize 👉)" : `Foco: ${mobileColumnFilter}`}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 p-1 bg-white/5 border border-white/10 rounded-2xl text-xs overflow-x-auto no-scrollbar scroll-smooth">
+                <button
+                  type="button"
+                  onClick={() => setMobileColumnFilter("all")}
+                  className={`px-3 py-1.5 rounded-xl font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    mobileColumnFilter === "all"
+                      ? "bg-white/15 text-white shadow"
+                      : "text-white/50 hover:text-white"
+                  }`}
+                >
+                  <span>Todas</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/10 text-white/70">
+                    {tasks.length}
+                  </span>
+                </button>
+
+                {PROJECT_STATUSES.map((col) => {
+                  const count = tasks.filter((t) => t.status === col.label).length;
+                  const isSelected = mobileColumnFilter === col.label;
+                  const ColIcon = col.icon;
+                  return (
+                    <button
+                      key={`mob-${col.label}`}
+                      type="button"
+                      onClick={() => setMobileColumnFilter(col.label)}
+                      className={`px-3 py-1.5 rounded-xl font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                        isSelected
+                          ? `${col.color} shadow`
+                          : "text-white/50 hover:text-white"
+                      }`}
+                    >
+                      <ColIcon size={12} />
+                      <span>{col.label}</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/10">
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto pb-6 snap-x snap-mandatory flex-1 -mx-4 px-4 md:mx-0 md:px-0">
+            <div
+              className={`flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 pb-6 flex-1 ${
+                mobileColumnFilter === "all"
+                  ? "overflow-x-auto snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0"
+                  : "px-0"
+              }`}
+            >
               {PROJECT_STATUSES.map((col) => {
                 const colTasks = tasks.filter((t) => t.status === col.label);
                 const ColIcon = col.icon;
+                const isHiddenOnMobile =
+                  mobileColumnFilter !== "all" && mobileColumnFilter !== col.label;
 
                 return (
                   <div
                     key={col.label}
-                    className="w-[82vw] sm:w-[320px] md:w-auto shrink-0 md:shrink glass rounded-2xl p-4 flex flex-col min-h-[480px] border border-white/5 snap-center"
+                    className={`${
+                      isHiddenOnMobile ? "hidden md:flex" : "flex"
+                    } ${
+                      mobileColumnFilter !== "all" ? "w-full" : "w-[82vw] sm:w-[320px]"
+                    } md:w-auto shrink-0 md:shrink glass rounded-2xl p-4 flex-col min-h-[480px] border border-white/5 snap-center`}
                   >
                   <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/10">
                     <div className="flex items-center gap-2">

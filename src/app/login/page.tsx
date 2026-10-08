@@ -47,8 +47,8 @@ export default function LoginPage() {
         <div className="p-3 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl mb-6 shadow-[0_0_20px_rgba(147,51,234,0.3)]">
           <BrainCircuit className="w-8 h-8 text-white" />
         </div>
-        <h1 className="text-2xl font-bold mb-2">Trivium Brain Hub</h1>
-        <p className="text-white/40 mb-8 text-center text-sm">Faça login com sua conta Google para acessar o Hub de ideias.</p>
+        <h1 className="text-2xl font-bold mb-2">Trivium Hub</h1>
+        <p className="text-white/40 mb-8 text-center text-sm">Faça login com sua conta Google para acessar o Hub de ideias e projetos.</p>
 
         <div className="w-full space-y-4">
           <button 

@@ -119,11 +119,11 @@ export default function TriviumGraphPage() {
       const newNodes: GraphNode[] = [];
       const newEdges: GraphEdge[] = [];
 
-      // 1. Nó Central: Trivium Brain (Núcleo)
+      // 1. Nó Central: Trivium Hub (Núcleo)
       const existingCore = existingNodeMap.get("trivium-core");
       newNodes.push({
         id: "trivium-core",
-        label: "Trivium Brain",
+        label: "Trivium Hub",
         type: "core",
         desc: "Núcleo neural de inteligência estratégica, inovação e projetos da Trivium.",
         x: existingCore && Number.isFinite(existingCore.x) ? existingCore.x : centerX,
@@ -197,7 +197,7 @@ export default function TriviumGraphPage() {
           pulseColor: "#00f5ff",
         });
 
-        // Fio cibernético interligando Projeto ao Trivium Brain
+        // Fio cibernético interligando Projeto ao Trivium Hub
         newEdges.push({
           source: "trivium-core",
           target: pNodeId,
@@ -249,11 +249,11 @@ export default function TriviumGraphPage() {
         }
       });
 
-      // 4. Ideias livres (sem projeto associado) em uma bola única satélite do Trivium Brain
+      // 4. Ideias livres (sem projeto associado) em uma bola única satélite do Trivium Hub
       if (standaloneIdeas.length > 0) {
         const standaloneId = "ideas-standalone";
         const existingStandalone = existingNodeMap.get(standaloneId);
-        const saAngle = -Math.PI / 2; // Acima do Trivium Brain
+        const saAngle = -Math.PI / 2; // Acima do Trivium Hub
         const saDist = 300;
 
         newNodes.push({
@@ -1110,11 +1110,11 @@ export default function TriviumGraphPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-extrabold text-sm tracking-tight text-white flex items-center gap-1.5">
-                Trivium Brain
+                Trivium Hub
               </h1>
               <span className="flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                NEURAL BRAIN
+                CONEXÕES NEURAIS
               </span>
             </div>
             <p className="text-[11px] text-white/50">
@@ -1204,7 +1204,7 @@ export default function TriviumGraphPage() {
         <button
           onClick={resetView}
           className="p-1.5 sm:p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1.5 text-xs font-semibold"
-          title="Centralizar Câmera no Trivium Brain"
+          title="Centralizar Câmera no Trivium Hub"
         >
           <Compass size={15} className="text-purple-400" />
           <span className="hidden xs:inline">Centralizar</span>
@@ -1239,7 +1239,14 @@ export default function TriviumGraphPage() {
 
       {/* DRAWER LATERAL DE ALTA FIDELIDADE: CONEXÕES & RELACIONAMENTOS */}
       {selectedNode && (
-        <aside className="fixed md:absolute top-4 md:top-6 bottom-20 md:bottom-6 left-4 md:left-auto right-4 md:right-6 w-auto md:w-96 z-50 bg-neutral-900/95 backdrop-blur-2xl border border-white/15 rounded-3xl p-5 md:p-6 flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-in slide-in-from-right duration-250">
+        <aside className="fixed md:absolute bottom-0 md:top-6 md:bottom-6 left-0 md:left-auto right-0 md:right-6 w-full md:w-96 max-h-[82vh] md:max-h-[calc(100vh-3rem)] z-50 bg-neutral-900/95 backdrop-blur-2xl border-t md:border border-white/15 rounded-t-3xl md:rounded-3xl p-5 md:p-6 pb-20 md:pb-6 flex flex-col shadow-[0_-10px_50px_rgba(0,0,0,0.85)] md:shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-in slide-in-from-bottom md:slide-in-from-right duration-250">
+          {/* Puxador de Toque Mobile (Swipe Handle) */}
+          <div
+            onClick={() => setSelectedNode(null)}
+            className="w-12 h-1.5 bg-white/20 hover:bg-white/40 rounded-full mx-auto -mt-2 mb-3 md:hidden cursor-pointer transition-colors"
+            title="Fechar Detalhes"
+          />
+
           {/* Header do Drawer */}
           <div className="flex justify-between items-start mb-3">
             <span

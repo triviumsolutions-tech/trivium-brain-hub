@@ -175,7 +175,7 @@ export function ScheduleMeetingModal({
 
   const generateGoogleCalendarUrl = (attendeesList: string[]) => {
     const dates = getGoogleCalendarDates();
-    const details = `${description}\n\nReunião registrada pelo Trivium Brain Hub\nProjeto: ${project}\nParticipantes: ${attendeesList.join(", ")}\nCriar ata após a reunião no Brain Hub.`;
+    const details = `${description}\n\nReunião registrada pelo Trivium Hub\nProjeto: ${project}\nParticipantes: ${attendeesList.join(", ")}\nCriar ata após a reunião no Trivium Hub.`;
     const attendeesParam = attendeesList.join(",");
 
     let url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
@@ -254,7 +254,7 @@ export function ScheduleMeetingModal({
               Agendar Reunião de Equipe
             </h2>
             <p className="text-xs text-white/50">
-              Integração com Google Agenda, Google Meet e ata no Brain Hub
+              Integração com Google Agenda, Google Meet e ata no Trivium Hub
             </p>
           </div>
         </header>

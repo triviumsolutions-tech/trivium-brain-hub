@@ -28,6 +28,7 @@ import {
   Plus,
   X,
   AlertTriangle,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -77,6 +78,8 @@ export default function ProjetosPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<EnrichedProject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState<"all" | ProjectStatus>("all");
 
   // Estados de Exclusão de Projeto
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
@@ -248,6 +251,27 @@ export default function ProjetosPage() {
     }
   };
 
+  const statusCounts = {
+    all: projects.length,
+    Desenvolvimento: projects.filter((p) => p.status === "Desenvolvimento").length,
+    Pausado: projects.filter((p) => p.status === "Pausado").length,
+    Backlog: projects.filter((p) => p.status === "Backlog").length,
+    Finalizado: projects.filter((p) => p.status === "Finalizado").length,
+  };
+
+  const filteredProjects = projects.filter((proj) => {
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      proj.name.toLowerCase().includes(q) ||
+      (proj.department && proj.department.toLowerCase().includes(q)) ||
+      (proj.painPoint && proj.painPoint.toLowerCase().includes(q));
+
+    if (!matchesSearch) return false;
+    if (selectedStatus !== "all" && proj.status !== selectedStatus) return false;
+    return true;
+  });
+
   return (
     <div className="p-4 sm:p-6 md:p-10 max-w-7xl mx-auto h-full flex flex-col relative z-10 min-h-screen">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-10 pb-6 border-b border-white/10">
@@ -415,6 +439,113 @@ export default function ProjetosPage() {
         </div>
       )}
 
+      {/* Barra de Filtros Rápidos e Busca Universal */}
+      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 mb-8">
+        {/* Chips de Status (Scroll suave no celular, flex-wrap no desktop) */}
+        <div className="flex items-center gap-1.5 p-1 bg-white/5 border border-white/10 rounded-2xl text-xs overflow-x-auto no-scrollbar scroll-smooth shrink-0">
+          <button
+            type="button"
+            onClick={() => setSelectedStatus("all")}
+            className={`px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              selectedStatus === "all"
+                ? "bg-white/15 text-white shadow"
+                : "text-white/50 hover:text-white"
+            }`}
+          >
+            <span>Todos</span>
+            <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-white/10 text-white/70">
+              {statusCounts.all}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedStatus("Desenvolvimento")}
+            className={`px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              selectedStatus === "Desenvolvimento"
+                ? "bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow"
+                : "text-white/50 hover:text-white"
+            }`}
+          >
+            <PlayCircle size={13} className="text-purple-400" />
+            <span>Desenvolvimento</span>
+            <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-300">
+              {statusCounts.Desenvolvimento}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedStatus("Pausado")}
+            className={`px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              selectedStatus === "Pausado"
+                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow"
+                : "text-white/50 hover:text-white"
+            }`}
+          >
+            <PauseCircle size={13} className="text-amber-400" />
+            <span>Pausados</span>
+            <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300">
+              {statusCounts.Pausado}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedStatus("Backlog")}
+            className={`px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              selectedStatus === "Backlog"
+                ? "bg-blue-500/20 text-blue-300 border border-blue-500/30 shadow"
+                : "text-white/50 hover:text-white"
+            }`}
+          >
+            <Clock size={13} className="text-blue-400" />
+            <span>Backlog</span>
+            <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-300">
+              {statusCounts.Backlog}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedStatus("Finalizado")}
+            className={`px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              selectedStatus === "Finalizado"
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow"
+                : "text-white/50 hover:text-white"
+            }`}
+          >
+            <CheckCircle2 size={13} className="text-emerald-400" />
+            <span>Finalizados</span>
+            <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300">
+              {statusCounts.Finalizado}
+            </span>
+          </button>
+        </div>
+
+        {/* Campo de Busca Rápida */}
+        <div className="relative glass rounded-2xl px-4 py-2 flex items-center gap-2 w-full md:w-80 border border-white/10">
+          <Search size={16} className="text-white/40 shrink-0" />
+          <input
+            type="text"
+            placeholder="Buscar projeto, tag ou dor..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="bg-transparent text-xs text-white placeholder:text-white/30 outline-none w-full"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="p-1 text-white/40 hover:text-white rounded-full transition-colors"
+              title="Limpar busca"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+
       {loading ? (
         <div className="flex-1 flex items-center justify-center py-20">
           <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
@@ -427,9 +558,28 @@ export default function ProjetosPage() {
             Clique em &quot;Novo Projeto&quot; ou promova uma ideia aprovada no Hub através do Checkpoint de Promoção.
           </p>
         </div>
+      ) : filteredProjects.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-[40vh] glass rounded-3xl border border-dashed border-white/20 p-8 text-center">
+          <Search size={44} className="text-white/20 mb-3" />
+          <h3 className="text-lg font-semibold mb-1 text-white">Nenhum projeto encontrado</h3>
+          <p className="text-xs text-white/40 max-w-sm mb-5">
+            Não encontramos nenhum projeto com os termos &quot;{searchQuery}&quot;
+            {selectedStatus !== "all" ? ` no status ${selectedStatus}` : ""}.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery("");
+              setSelectedStatus("all");
+            }}
+            className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-semibold border border-white/10 transition-colors"
+          >
+            Limpar Filtros e Busca
+          </button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((proj, idx) => {
+          {filteredProjects.map((proj, idx) => {
             const StatusIcon = STATUS_ICONS[proj.status] || Clock;
             const statusClass = STATUS_COLORS[proj.status] || "bg-white/10 text-white/70";
 

@@ -24,29 +24,50 @@ export function Sidebar() {
   return (
     <>
       {/* 1. TOP BAR MOBILE (Visível apenas em telas < 768px) */}
-      <div className="flex md:hidden items-center justify-between px-4 py-3 border-b border-white/10 bg-black/80 backdrop-blur-xl sticky top-0 z-40 select-none w-full">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-gradient-to-tr from-purple-600 via-indigo-600 to-blue-500 rounded-lg shadow-[0_0_15px_rgba(147,51,234,0.4)] flex items-center justify-center shrink-0">
-            <BrainCircuit className="w-4 h-4 text-white" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-extrabold text-sm tracking-tight text-white leading-none">
-              Trivium Brain
-            </span>
-            <span className="text-[9px] text-purple-400 font-mono tracking-wider font-semibold">
-              FOUNDER
-            </span>
-          </div>
-        </Link>
+      <div className="flex md:hidden items-center justify-between px-4 py-3 border-b border-white/10 bg-black/85 backdrop-blur-xl sticky top-0 z-40 select-none w-full">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Link href="/" className="flex items-center gap-2.5 shrink-0">
+            <div className="w-8 h-8 bg-gradient-to-tr from-purple-600 via-indigo-600 to-blue-500 rounded-lg shadow-[0_0_15px_rgba(147,51,234,0.4)] flex items-center justify-center shrink-0">
+              <BrainCircuit className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-extrabold text-sm tracking-tight text-white leading-none">
+                Trivium Hub
+              </span>
+              <span className="text-[9px] text-purple-400 font-mono tracking-wider font-semibold">
+                FOUNDER
+              </span>
+            </div>
+          </Link>
+
+          {/* Breadcrumb / Indicador de Localização Contextual */}
+          {pathname !== "/" && (
+            <div className="flex items-center gap-1.5 pl-2 border-l border-white/10 truncate">
+              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/10 truncate">
+                {pathname.startsWith("/projetos/")
+                  ? "Kanban"
+                  : pathname === "/projetos"
+                  ? "Projetos"
+                  : pathname === "/grafo"
+                  ? "Conexões"
+                  : pathname === "/trivium-ai"
+                  ? "IA"
+                  : pathname === "/configuracoes"
+                  ? "Ajustes"
+                  : "Manual"}
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Botão de Menu para Ações Secundárias */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 rounded-xl text-white/70 hover:text-white bg-white/5 border border-white/10 active:scale-95 transition-all text-xs flex items-center gap-1.5"
+          className="p-2 rounded-xl text-white/70 hover:text-white bg-white/5 border border-white/10 active:scale-95 transition-all text-xs flex items-center gap-1.5 shrink-0"
           aria-label="Abrir menu do sistema"
         >
           <Settings size={16} />
-          <span className="text-[11px] font-medium">Mais</span>
+          <span className="text-[11px] font-medium hidden xs:inline">Mais</span>
         </button>
 
         {/* Dropdown Menu Mobile */}
@@ -99,7 +120,7 @@ export function Sidebar() {
           </div>
           <div className="flex flex-col min-w-0">
             <span className="font-extrabold text-base tracking-tight text-white">
-              Trivium Brain
+              Trivium Hub
             </span>
             <span className="text-[10px] text-purple-400 font-mono tracking-widest font-semibold">
               FOUNDER MODE
@@ -121,13 +142,13 @@ export function Sidebar() {
           />
           <SidebarItem
             icon={<Library size={18} />}
-            label="Projects"
+            label="Projetos"
             href="/projetos"
             active={pathname.startsWith("/projetos")}
           />
           <SidebarItem
             icon={<Network size={18} />}
-            label="Brain"
+            label="Conexões"
             href="/grafo"
             active={pathname === "/grafo"}
           />
@@ -181,13 +202,13 @@ export function Sidebar() {
         />
         <MobileNavItem
           icon={<Library size={20} />}
-          label="Projects"
+          label="Projetos"
           href="/projetos"
           active={pathname.startsWith("/projetos")}
         />
         <MobileNavItem
           icon={<Network size={20} />}
-          label="Brain"
+          label="Conexões"
           href="/grafo"
           active={pathname === "/grafo"}
         />

@@ -13,7 +13,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Trivium Brain Hub",
+  title: "Trivium Hub",
   description: "AI-Powered Idea Management & Execution Cockpit",
   manifest: "/manifest.json",
   icons: {
